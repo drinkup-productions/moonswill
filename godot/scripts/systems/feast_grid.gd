@@ -49,8 +49,9 @@ func path_to_exit(from: Vector2i) -> Array[Vector2i]:
 	var came_from := {}
 	var seen := {from: true}
 	var goal := Vector2i(-1, -1)
-
+	#var cur: Vector2i = queue.pop_front()
 	while not queue.is_empty():
+		@warning_ignore("confusable_local_declaration")
 		var cur: Vector2i = queue.pop_front()
 		if is_exit(cur) and cur != from:
 			goal = cur
