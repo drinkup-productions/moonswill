@@ -157,7 +157,7 @@ func _brew() -> void:
 	var wanted := "NO TARGET — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
 	result_lbl.text = "[b]wanted[/b] %s   ·   [b]got[/b] %s\n[b]Satisfaction %d[/b]\n[i]%s[/i]" % [
 		wanted, Attributes.pretty(res), sc,
-		BrewCalculator.band_line(sc, req.is_wildcard)
+		BrewCalculator.band_line(sc, req.is_wildcard())
 	]
 	total += sc
 	selected.clear()
