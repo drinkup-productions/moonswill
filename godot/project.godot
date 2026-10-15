@@ -20,7 +20,7 @@ Game="*res://scripts/autoload/game.gd"
 Save="*res://scripts/autoload/save.gd"
 Journal="*res://scripts/autoload/journal.gd"
 Levels="*res://scripts/autoload/levels.gd"
-IngredientDB="*res://scripts/data/ingredient_dg.gd"
+IngredientDB="*res://scripts/data/ingredient_db.gd"
 
 [display]
 

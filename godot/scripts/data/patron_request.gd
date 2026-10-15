@@ -4,23 +4,6 @@ extends RefCounted
 
 enum Kind { SPECIFIC, VAGUE, PROXY, WILDCARD }
 
-var kind: Kind = Kind.SPECIFIC
-var want: Dictionary = {}          # empty for WILDCARD
-var strictness: float = 1.0
-var line: String = ""
-var note: String = ""
-
-
-static func make(kind: Kind, line: String, want: Dictionary, strictness: float) -> PatronRequest:
-	var r := PatronRequest.new()
-	r.kind = kind
-	r.line = line
-	r.want = want
-	r.strictness = strictness
-	r.note = NOTE[kind]
-	return r
-
-
 const NOTE := {
 	Kind.SPECIFIC: "exact mark, strict on side effects",
 	Kind.VAGUE: "roughly, forgiving",
@@ -34,3 +17,23 @@ const LABEL := {
 	Kind.PROXY: "proxy",
 	Kind.WILDCARD: "wildcard",
 }
+
+var kind: Kind = Kind.SPECIFIC
+var want: Dictionary = {}          # empty for WILDCARD
+var strictness: float = 1.0
+var line: String = ""
+var note: String = ""
+
+
+static func make(p_kind: Kind, p_line: String, p_want: Dictionary, p_strictness: float) -> PatronRequest:
+	var r := PatronRequest.new()
+	r.kind = p_kind
+	r.line = p_line
+	r.want = p_want
+	r.strictness = p_strictness
+	r.note = NOTE[p_kind]
+	return r
+
+
+func is_wildcard() -> bool:
+	return kind == Kind.WILDCARD

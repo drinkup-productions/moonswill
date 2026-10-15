@@ -1,4 +1,7 @@
 res://scenes/boot.tscn
+res://scripts/brew.gd
 res://scenes/feast/feast.tscn
-res://scripts/feast.gd
-res://scripts/systems/feast_grid.gd
+res://scenes/brew/brew.tscn
+res://scripts/data/ingredient.gd
+res://scripts/data/ingredient_db.gd
+res://scripts/data/patron_request.gd
