@@ -9,6 +9,7 @@ var spot_grid: GridContainer
 var pantry_lbl: RichTextLabel
 var hint_lbl: Label
 var open_btn: Button
+var journal_ui: JournalUI
 
 
 func _ready() -> void:
@@ -48,6 +49,26 @@ func _tag_covered(t: String) -> bool:
 	return false
 
 
+func _ensure_journal() -> void:
+	if journal_ui == null:
+		journal_ui = JournalUI.new()
+		add_child(journal_ui)
+
+
+func _toggle_journal() -> void:
+	_ensure_journal()
+	if journal_ui.is_open():
+		journal_ui.close()
+	else:
+		journal_ui.open()
+
+
+func _on_new_run() -> void:
+	Save.delete_save(Game.AUTOSAVE_SLOT)
+	Game.reset_run()
+	_refresh()
+
+
 func _on_search(p_id: int) -> void:
 	if Game.searches_left <= 0:
 		return
@@ -67,9 +88,18 @@ func _on_open() -> void:
 	get_tree().change_scene_to_file("res://scenes/brew/brew.tscn")
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if journal_ui != null and journal_ui.is_open():
+			return
+		if event.keycode == KEY_J:
+			_toggle_journal()
+			get_viewport().set_input_as_handled()
+
+
 func _refresh() -> void:
-	status_lbl.text = "Day %d — morning     searches left: %d     weight %d     attention %d" % [
-		Game.day, Game.searches_left, Game.weight, Game.attention
+	status_lbl.text = "Day %d — morning     searches left: %d     taste tests left: %d     weight %d     attention %d" % [
+		Game.day, Game.searches_left, Game.taste_tests_left, Game.weight, Game.attention
 	]
 	_refresh_customers()
 	_refresh_coverage()
@@ -162,7 +192,17 @@ func _build_ui() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(col)
 
-	status_lbl = _label(col, "")
+	var head := HBoxContainer.new()
+	col.add_child(head)
+	status_lbl = _label(head, "")
+	var j_btn := Button.new()
+	j_btn.text = "journal  (J)"
+	j_btn.pressed.connect(_toggle_journal)
+	head.add_child(j_btn)
+	var new_btn := Button.new()
+	new_btn.text = "new run"
+	new_btn.pressed.connect(_on_new_run)
+	head.add_child(new_btn)
 
 	_label(col, "Tonight's customers")
 	var card := PanelContainer.new()

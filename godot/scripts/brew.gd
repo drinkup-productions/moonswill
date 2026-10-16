@@ -10,7 +10,7 @@ var selected: Array[String] = []
 var served := 0
 var total := 0
 var locked := false
-var view := "ingredient"
+var journal_ui: JournalUI
 
 var status_lbl: Label
 var name_lbl: Label
@@ -21,8 +21,6 @@ var note_lbl: Label
 var shelf_grid: GridContainer
 var vat_box: HBoxContainer
 var result_lbl: RichTextLabel
-var journal_grid: GridContainer
-var known_lbl: Label
 
 
 func _ready() -> void:
@@ -41,6 +39,20 @@ func _label(parent: Node, text: String) -> Label:
 	l.text = text
 	parent.add_child(l)
 	return l
+
+
+func _ensure_journal() -> void:
+	if journal_ui == null:
+		journal_ui = JournalUI.new()
+		add_child(journal_ui)
+
+
+func _toggle_journal() -> void:
+	_ensure_journal()
+	if journal_ui.is_open():
+		journal_ui.close()
+	else:
+		journal_ui.open()
 
 
 func _start_night() -> void:
@@ -179,7 +191,7 @@ func _end_night() -> void:
 			Levels.level, Levels.searches(), Levels.yield_per_search()
 		]
 	Game.add_weight(served)     # placeholder until the feast drives this (§6.10)
-	Game.advance_day()          # builds tomorrow's roster and spots, phase -> FORAGE
+	Game.advance_day()          # builds tomorrow, autosaves, phase -> FORAGE
 	result_lbl.text = msg
 	request_lbl.text = ""
 	note_lbl.text = "Journal kept. Progress kept. Stock carries. Press R for the morning."
@@ -202,7 +214,13 @@ func _build_ui() -> void:
 	var col := VBoxContainer.new()
 	margin.add_child(col)
 
-	status_lbl = _label(col, "")
+	var head := HBoxContainer.new()
+	col.add_child(head)
+	status_lbl = _label(head, "")
+	var j_btn := Button.new()
+	j_btn.text = "journal  (J)"
+	j_btn.pressed.connect(_toggle_journal)
+	head.add_child(j_btn)
 
 	var card := PanelContainer.new()
 	col.add_child(card)
@@ -246,67 +264,16 @@ func _build_ui() -> void:
 	result_lbl.custom_minimum_size = Vector2(0, 90)
 	col.add_child(result_lbl)
 
-	var jrow := HBoxContainer.new()
-	col.add_child(jrow)
-	_label(jrow, "Chugs's journal")
-	known_lbl = _label(jrow, "")
-	var ing_btn := Button.new()
-	ing_btn.text = "by ingredient"
-	ing_btn.pressed.connect(func() -> void:
-		view = "ingredient"
-		_refresh_journal()
-	)
-	jrow.add_child(ing_btn)
-	var eff_btn := Button.new()
-	eff_btn.text = "by effect"
-	eff_btn.pressed.connect(func() -> void:
-		view = "effect"
-		_refresh_journal()
-	)
-	jrow.add_child(eff_btn)
-
-	journal_grid = GridContainer.new()
-	journal_grid.columns = 2
-	col.add_child(journal_grid)
-	_refresh_journal()
-
-
-func _refresh_journal() -> void:
-	_clear(journal_grid)
-	known_lbl.text = "%d of %d known" % [
-		Journal.known_ingredients.size(), IngredientDB.all.size() - 1
-	]
-
-	if view == "ingredient":
-		for id in IngredientDB.all.keys():
-			if IngredientDB.is_diluent(id):
-				continue
-			var ing: Ingredient = IngredientDB.get_ingredient(id)
-			var known := Journal.knows_ingredient(id)
-			var txt := Attributes.pretty(ing.effect()) if known else "not yet known"
-			_label(journal_grid, "%s — %s" % [ing.display_name, txt])
-	else:
-		for a in Attributes.LIST:
-			var up: Array[String] = []
-			var down: Array[String] = []
-			for id in IngredientDB.all.keys():
-				if not Journal.knows_ingredient(id):
-					continue
-				var v: int = IngredientDB.get_ingredient(id).effect()[a]
-				if v > 0:
-					up.append("%s +%d" % [id, v])
-				if v < 0:
-					down.append("%s %d" % [id, v])
-			_label(journal_grid, "%s   raise: %s   |   lower: %s" % [
-				a,
-				", ".join(up) if not up.is_empty() else "—",
-				", ".join(down) if not down.is_empty() else "—",
-			])
-
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-		if Game.phase == Game.Phase.FORAGE:
-			get_tree().change_scene_to_file(FORAGE_SCENE)
-		else:
-			get_tree().reload_current_scene()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if journal_ui != null and journal_ui.is_open():
+			return
+		if event.keycode == KEY_J:
+			_toggle_journal()
+			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_R:
+			if Game.phase == Game.Phase.FORAGE:
+				get_tree().change_scene_to_file(FORAGE_SCENE)
+			else:
+				get_tree().reload_current_scene()

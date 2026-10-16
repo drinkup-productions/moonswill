@@ -12,6 +12,7 @@ enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
 const WELLWATER_STOCK := 99
+const AUTOSAVE_SLOT := 1
 
 var day: int = 1
 var region: String = "home"
@@ -24,6 +25,7 @@ var stock_today: Array[String] = []     # what was foraged today
 var roster: Array = []                  # Array[Patron] — tonight's customers
 var forage: ForageMap = null            # today's spots
 var searches_left: int = 0
+var taste_tests_left: int = 0
 
 
 ## Builds a fresh day: roster, spots, search budget. Called by boot and by
@@ -35,6 +37,7 @@ func start_day() -> void:
 		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB
 	)
 	searches_left = Levels.searches()
+	taste_tests_left = Levels.taste_tests_per_day()
 	top_up_wellwater()
 	roster_ready.emit(roster)
 	set_phase(Phase.FORAGE)
@@ -67,6 +70,27 @@ func needed_tags() -> Array:
 	return out
 
 
+## Targeted discovery. Costs one unit and one of the day's taste tests.
+## Chugs reverts to his state at the start of the test, so nothing sticks —
+## patron-applied effects are not covered and remain permanent. §6.4
+func taste(id: String) -> String:
+	if Journal.knows_ingredient(id):
+		return "Already in the journal."
+	if taste_tests_left <= 0:
+		return "No taste tests left today."
+	if not has_item(id, 1):
+		return "None in the pantry."
+	take_item(id, 1)
+	taste_tests_left -= 1
+	var ing: Ingredient = IngredientDB.get_ingredient(id)
+	Journal.learn_ingredient(id, ing.tags)
+	return "Tasted %s — %s" % [ing.display_name, Attributes.pretty(ing.effect())]
+
+
+func can_taste(id: String) -> bool:
+	return taste_tests_left > 0 and not Journal.knows_ingredient(id) and has_item(id, 1)
+
+
 func top_up_wellwater() -> void:
 	inventory["wellwater"] = maxi(int(inventory.get("wellwater", 0)), WELLWATER_STOCK)
 
@@ -92,6 +116,7 @@ func advance_day() -> void:
 	stock_today.clear()
 	day_advanced.emit(day)
 	start_day()
+	Save.save_game(AUTOSAVE_SLOT)
 
 
 func add_weight(n: int) -> void:
@@ -129,6 +154,7 @@ func has_item(id: String, n: int = 1) -> bool:
 	return inventory.get(id, 0) >= n
 
 
+## Wipes the run and the journal. A fresh save means fresh discovery. §6.15
 func reset_run() -> void:
 	day = 1
 	region = "home"
@@ -136,4 +162,6 @@ func reset_run() -> void:
 	attention = 0
 	inventory.clear()
 	stock_today.clear()
+	Journal.reset()
+	Journal.seed_starter()
 	start_day()

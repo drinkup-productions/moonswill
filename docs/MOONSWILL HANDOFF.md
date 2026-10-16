@@ -180,6 +180,23 @@ Note: `tools/prototypes/` currently contains a single stray file named
 - Tags gained tags_raising/tags_lowering for the reverse lookup.
 - Not done: tasting, the overworld, feast hand-off after service.
 
+### 2026-10-15 — Build step 5
+- Journal is now a real overlay (JournalUI, CanvasLayer) reachable with J
+  from forage and brew. Overlay rather than scene, so opening it mid
+  service doesn't restart the night.
+- Both views: by ingredient, by effect (reverse lookup, known only).
+  Unknown entries marked. Exact deltas. §6.15
+- Taste test wired: costs one unit, limited to Levels.taste_tests_per_day,
+  reveals the entry. Does not yet affect Chugs — step 8.
+- Fresh saves seed three known ingredients so the notebook starts about a
+  third full, per §6.15. Per-save, as specified.
+- Autosave on advance_day to slot 1; boot resumes it. Journal now really
+  does survive reload, which it previously only claimed to.
+- Resolved two doc ambiguities: taste cost (§6.4 vs §9) and
+  reveal-precision (§6.4 [OPEN] vs §6.15) — both logged here, design.md
+  not yet updated.
+- brew.gd's inline journal panel removed; JournalUI serves both scenes.
+
 ---
 
 ## 6. CONVENTIONS

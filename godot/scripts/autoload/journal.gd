@@ -4,6 +4,10 @@ extends Node
 
 signal entry_learned(kind: String, id: String)
 
+## What a fresh save already knows, so the notebook starts about a third
+## filled rather than empty. §6.15
+const STARTER := ["sunmelon", "bogroot", "ironoats"]
+
 var known_ingredients: Dictionary = {}   # String -> true
 var known_tags: Dictionary = {}          # String -> true
 
@@ -23,6 +27,22 @@ func knows_ingredient(id: String) -> bool:
 
 func knows_tag(id: String) -> bool:
 	return known_tags.has(id)
+
+
+func known_count() -> int:
+	return known_ingredients.size()
+
+
+func total_ingredients() -> int:
+	return maxi(1, IngredientDB.all.size() - 1)   # wellwater has no effect
+
+
+## Called on a brand-new run only. Loaded saves carry their own journal.
+func seed_starter() -> void:
+	for id in STARTER:
+		var ing: Ingredient = IngredientDB.get_ingredient(id)
+		if ing != null:
+			learn_ingredient(id, ing.tags)
 
 
 func serialize() -> Dictionary:
