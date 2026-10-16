@@ -168,11 +168,25 @@ patron is an account you either keep or cash out.
   specific item or action.
 - On Chugs, from taste tests: temporary.
 
+**Stages.** Raw points bucket into six stages (0-5). One full vat is
+about one stage, which is what makes §6.3's three-brew escalation fall
+out of the maths instead of being special-cased. Art and mechanics both
+read a stage, never raw points.
+
+**Crossing a stage is an event.** A reaction fires the first time an
+axis crosses upward — see §6.17. Repeated small doses do not re-trigger.
+
+**The slice runs one axis: bulk** (belly/weight). It is the only axis
+with combat semantics and the only one Chugs shares with enemies, so a
+single ladder and a single art set serve both. Further axes are
+additive, and cost overlays rather than new bodies.
+
 ### 6.10 Weight
 - Persistent. Decreases **only** through overworld exertion.
 - **Spiral:** fat → slow → fewer trips → fatter.
-- Fat = resilience: HP, damage resistance, heavier attacks. A tank
-  build is legitimate and slow.
+- Fat = resilience through **damage resistance and heavier attacks,
+  not a larger HP pool.** A fixed pool plus rising resistance avoids
+  double-dipping; a tank build is legitimate and slow.
 - Three costly outs: exertion, slimming brews, refusing treats.
 - **Belly capacity is a resource.** Brews and treats compete for space.
 - Concealment: loose clothing masks one stage. Level 7 masks two.
@@ -257,6 +271,38 @@ load-bearing for pacing, not just plot.
 player serving three patrons brilliantly out-levels one serving six
 badly. Do not add XP for volume.
 
+### 6.17 Reactions
+What a character *does* when their body changes. Reactions are the
+counterplay to transformation, and the reason a fight is not solved by
+"fatten it" every single time.
+
+- Keyed by **reaction profile**, not species. Two individuals of one
+  type can react differently, for no extra art.
+- Fires once per threshold, only on an upward crossing (§6.9).
+- Kinds: none, distracted, guard down, slowed, enraged, stop, flee.
+  - *distracted* — loses turns
+  - *guard down* — resistance halved
+  - *slowed* — speed reduced
+  - *enraged* — hits harder and moves faster
+  - *stop* — stops fighting and enjoys it
+  - *flee* — leaves
+- **Profile is rolled per individual at spawn.** The same bandit can be
+  a pushover or a problem, and the player cannot tell until they try.
+
+Slice profiles:
+
+| Profile | On bulk | Reads as |
+|---|---|---|
+| feral | slowed, then stop | §8's "fatten a wolf so it can't close" |
+| humanoid | distracted, then guard down | stops to enjoy it; §7.1 species reads |
+| brute | **enraged** | the counter-example: bulking him is a mistake |
+
+**Design note — reactions are the interesting half.** Hindering a feral
+creature with weight is a strategy. Making a person stop and stare at
+themselves is the joke, and it is why the axis is worth having at all.
+
+Bespoke dialogue and animation per reaction are a later pass. The
+system ships grey-box, with the reaction named in the battle log.
 ---
 
 ## 7. NPCS
@@ -310,12 +356,27 @@ matters.
 ---
 
 ## 8. OVERWORLD & COMBAT
-- Anthro cast; **feral enemies** (wolves, bears, and worse).
+- Anthro cast. Enemies are **feral** (wolves, bears, and worse) **or
+  humanoid** — bandits, rivals, people with a grudge.
 - Turn-based. Enemies drop ingredients. Enemies are ingredient nodes
   with a fight attached.
 - **Brews are usable on enemies** to force transformations — fatten a
-  wolf so it can't close.
+  wolf so it can't close, or make a bandit stop and look at himself.
+  Ending a fight with no blows struck is legitimate if the player has
+  the stock. Otherwise they fight.
+- Enemies **carry their own brews**, rolled into their inventory at the
+  start of a battle, and will use them on Chugs. Same component, same
+  rules; direction is the only difference.
+- Chugs's attacks: **Punch, Claw, Belly Slam.** Weight raises Belly
+  Slam's damage and its cost. Fat is power that is slow.
+- **Fights are a sandbox, not a wall.** Generous turn limits, low
+  lethality, room to try things and watch what happens. They exist so
+  the player can experiment, and to yield ingredients.
+- Reactions (§6.17) are the counterplay — see the brute profile.
 - Defeat = knocked out, **lose half of gathered inventory.** Never fatal.
+- Enemy transformations **do not persist** between encounters. Win or
+  lose, bodies reset. Loot is unaffected either way.
+- Only Chugs's weight, and the weight lost to exertion, leaves a fight.
 
 ## 9. TIME
 - Day = forage / brew / taste test / prep. Night = service.
@@ -376,6 +437,20 @@ axis, 1 taste test, 1 feast, PG-13 only.
 Keep these. They are the proof of what works.
 
 ## 15. OPEN QUESTIONS
+
+### Resolved 2026-10-15 — combat scope
+| # | Question | Answer |
+|---|---|---|
+| 1 | Do enemy transformations persist between encounters? | No. Reset at the next encounter, win or lose. |
+| 2 | Does a transformed enemy drop different loot? | No. Same loot. |
+| 3 | Can an encounter be resolved by transformation alone? | Yes, if the player has the stock. Otherwise they fight. |
+| 4 | Where do enemies get brews? | Rolled into their inventory at battle start. |
+| 5 | Does drinking consume belly capacity? | No. Only Chugs's weight, and exertion loss, persists. |
+| 6 | Does Chugs's weight do anything in combat? | Raises Belly Slam damage and its AP cost. |
+| 7 | Does the NSFW toggle apply to enemies? | Yes. Battles are paced to allow experimentation. |
+| 8 | Which axis is the slice's single axis? | Bulk. More axes are additive later. |
+
+### Still open
 1. Does the journal record **combos**, or only single ingredients?
 2. Does Chugs ever *forget* an ingredient? (Lean: no.)
 3. Region count and names.
@@ -419,6 +494,17 @@ Keep these. They are the proof of what works.
 | 10-15 | Level cap 10, bonuses capped | Foraging must stay relevant |
 | 10-15 | Relocation is the difficulty reset | Leveling alone softens the game |
 | 10-15 | **No XP from eating** | Leveling is a brewing measure |
+| 10-15 | Enemy TF resets between encounters | Fights are experiments, not investments |
+| 10-15 | Transformed enemies drop the same loot | Loot is not a second progression axis |
+| 10-15 | Enemies carry their own brews | Symmetry: he is a customer too |
+| 10-15 | Reactions keyed per individual | Variety at zero art cost |
+| 10-15 | Brute profile enrages on bulk | Transformation must not be a universal win |
+| 10-15 | Chugs's attacks: Punch, Claw, Belly Slam | Weight is power that is slow |
+| 10-15 | HP fixed; weight gives resistance not HP | Avoid double-dipping |
+| 10-15 | Humanoid enemies allowed | Bandits read as people, not monsters |
+| 10-15 | Combat is a sandbox, not a wall | The game is brewing; fights feed it |
+| 10-15 | Slice axis is bulk, one only | Only axis with combat meaning, shared with enemies |
+| 10-15 | Reactions ship grey-box, dialogue later | Art and VO are a later pass |
 
 ## 17. APPENDIX — KINK → MECHANIC MAP
 | Concept | System |

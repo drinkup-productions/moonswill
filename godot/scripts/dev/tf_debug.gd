@@ -1,19 +1,24 @@
 extends Control
-## Dev scene: poke a Transform, watch the art-facing descriptor move.
-## F6 on this scene. Validates the contract long before art exists.
+## Dev scene: poke a Transform, watch the descriptor AND the combatant's
+## derived stats move. F6 on this scene.
 
 const STEP := 6
 
 var t: Transform
+var c: Combatant
 var profile := "humanoid"
 var info_lbl: Label
+var combat_lbl: Label
 var reaction_lbl: Label
 var log_lbl: RichTextLabel
 
 
 func _ready() -> void:
 	t = Transform.new("bandit")
-	t.crossed.connect(_on_crossed)
+	c = Combatant.new("Bandit", "bandit")
+	c.transform = t
+	c.reaction_profile = profile
+	c.refresh_stats()
 	_build()
 	_refresh()
 
@@ -26,30 +31,43 @@ func _btn(parent: Node, text: String, cb: Callable) -> void:
 
 
 func _bump(amount: int) -> void:
-	t.apply({"belly": amount})
+	var events := t.apply({"belly": amount})
+	c.refresh_stats()
+	for r in c.react_to(events):
+		_log("reaction: %s (%d turns)" % [r["name"], r["turns"]])
 	_refresh()
 
 
 func _cycle_profile() -> void:
 	var order := ["feral", "humanoid", "brute"]
 	profile = order[(order.find(profile) + 1) % order.size()]
+	c.reaction_profile = profile
 	_refresh()
 
 
-func _on_crossed(axis: String, from_stage: int, to_stage: int) -> void:
-	var r := ReactionTable.lookup(profile, axis, to_stage)
-	var kind := ReactionTable.kind_name(int(r.get("kind", ReactionTable.Kind.NONE)))
-	reaction_lbl.text = "crossed %s %d -> %d    reaction: %s" % [axis, from_stage, to_stage, kind]
+func _log(p_text: String) -> void:
 	if not log_lbl.text.is_empty():
 		log_lbl.text += "\n"
-	log_lbl.text += "[%s] %s %d->%d : %s" % [profile, axis, from_stage, to_stage, kind]
+	log_lbl.text += p_text
+
+
+func _on_crossed(axis: String, from_stage: int, to_stage: int) -> void:
+	reaction_lbl.text = "crossed %s %d -> %d" % [axis, from_stage, to_stage]
+	_log("[%s] %s %d -> %d" % [profile, axis, from_stage, to_stage])
 
 
 func _refresh() -> void:
 	var v := t.visual()
-	info_lbl.text = "profile %s  |  base %d  blend %.2f  tear %d  silhouette %d (visible %d)  conceal %d" % [
-		profile, v["base_stage"], v["base_blend"], v["tear"],
+	info_lbl.text = "base %d  blend %.2f  tear %d  silhouette %d (visible %d)  conceal %d" % [
+		v["base_stage"], v["base_blend"], v["tear"],
 		v["silhouette"], v["visible_silhouette"], t.concealed_stages,
+	]
+	var slam := ""
+	for a in c.attacks():
+		if a["id"] == "belly_slam":
+			slam = "  belly slam %d dmg / %d ap" % [a["damage"], a["ap"]]
+	combat_lbl.text = "hp %d/%d   speed %d   resist %.2f%s   effects: %s" % [
+		c.hp, c.max_hp, c.speed(), c.damage_resist(), slam, c.status_text(),
 	]
 	queue_redraw()
 
@@ -66,6 +84,8 @@ func _build() -> void:
 
 	info_lbl = Label.new()
 	col.add_child(info_lbl)
+	combat_lbl = Label.new()
+	col.add_child(combat_lbl)
 
 	var row := HBoxContainer.new()
 	col.add_child(row)
@@ -83,6 +103,8 @@ func _build() -> void:
 	_btn(row, "cycle profile", _cycle_profile)
 	_btn(row, "reset", func() -> void:
 		t.points["belly"] = 0
+		c.effects.clear()
+		c.refresh_stats()
 		_refresh()
 	)
 
@@ -97,7 +119,7 @@ func _build() -> void:
 
 func _draw() -> void:
 	var v := t.visual()
-	var centre := Vector2(620, 380)
+	var centre := Vector2(620, 400)
 	var sc := 1.0 + float(v["visible_silhouette"]) * 0.22
 	draw_circle(centre, 40.0 * sc, Color(0.66, 0.33, 0.97, 0.5))
 
@@ -111,5 +133,10 @@ func _draw() -> void:
 	for i in v["tear"]:
 		draw_arc(centre, 44.0 * sc + i * 7.0, 0.0, TAU, 32, Color(1, 0.4, 0.4), 2.0)
 
+	# hp bar
+	var frac := float(c.hp) / maxi(1, c.max_hp)
+	draw_rect(Rect2(centre + Vector2(-60, 110 * sc), Vector2(120, 8)), Color(0.2, 0.2, 0.24))
+	draw_rect(Rect2(centre + Vector2(-60, 110 * sc), Vector2(120 * frac, 8)), Color(0.85, 0.25, 0.3))
+
 	var font := ThemeDB.fallback_font
-	draw_string(font, centre + Vector2(-80, 96 * sc), "base %d  blend %.2f" % [v["base_stage"], v["base_blend"]], HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
+	draw_string(font, centre + Vector2(-80, 100 * sc), "base %d  blend %.2f" % [v["base_stage"], v["base_blend"]], HORIZONTAL_ALIGNMENT_LEFT, -1, 14)

@@ -40,7 +40,7 @@ func _spawn_patrons() -> void:
 		p.display_name = d.name
 		p.species = d.species
 		p.cell = d.cell
-		p.transformation = d.tf
+		p.set_legacy_transformation(d.tf)
 		p.willing = d.willing
 		ctrl.register_patron(p)
 
@@ -59,23 +59,47 @@ func _build_hud() -> void:
 	hint.text = "WASD / arrows to move (1 AP per step) — walk onto a patron to eat them. SPACE to end turn."
 
 
+func _speed_report() -> String:
+	var parts: Array[String] = []
+	for p in ctrl.patrons:
+		if p.is_active():
+			parts.append("%s %d" % [p.display_name, p.speed()])
+	return ", ".join(parts)
+
+
+## A live turn is the condition for ending it. Action points are only the
+## condition for moving. Conflating the two softlocks at zero AP.
 func _unhandled_input(event: InputEvent) -> void:
-	if busy or not ctrl.can_act():
+	if busy or ctrl.finished or ctrl.resolved:
 		return
-	if event.is_action_pressed("move_up"):    _move(Vector2i.UP)
-	elif event.is_action_pressed("move_down"):  _move(Vector2i.DOWN)
-	elif event.is_action_pressed("move_left"):  _move(Vector2i.LEFT)
-	elif event.is_action_pressed("move_right"): _move(Vector2i.RIGHT)
-	elif event.is_action_pressed("confirm"):    _end_turn()
+
+	if event.is_action_pressed("confirm"):
+		_end_turn()
+		return
+
+	if not ctrl.can_act():
+		return
+
+	if event.is_action_pressed("move_up"):
+		_move(Vector2i.UP)
+	elif event.is_action_pressed("move_down"):
+		_move(Vector2i.DOWN)
+	elif event.is_action_pressed("move_left"):
+		_move(Vector2i.LEFT)
+	elif event.is_action_pressed("move_right"):
+		_move(Vector2i.RIGHT)
 
 
 func _move(dir: Vector2i) -> void:
-	if ctrl.try_move(dir):
-		queue_redraw()
+	if not ctrl.try_move(dir):
+		return
+	queue_redraw()
+	if ctrl.ap <= 0 and not busy:
+		_end_turn()          # nothing left to spend, so don't make them say so
 
 
 func _end_turn() -> void:
-	if busy or ctrl.finished:
+	if busy or ctrl.finished or ctrl.resolved:
 		return
 	busy = true
 	ctrl.end_turn()
@@ -108,7 +132,11 @@ func _on_ended(caught: int, escaped: int) -> void:
 
 
 func _refresh() -> void:
-	status.text = "Turns left: %d     AP: %d/%d" % [ctrl.turns_left, ctrl.ap, ctrl.ap_max]
+	status.text = "Turns left: %d     AP: %d/%d     speeds: %s" % [
+		ctrl.turns_left, ctrl.ap, ctrl.ap_max, _speed_report()
+	]
+	if ctrl.ap <= 0 and not ctrl.finished and not ctrl.resolved:
+		hint.text = "Out of action points — ending the turn. SPACE to end early."
 	queue_redraw()
 
 
@@ -132,7 +160,7 @@ func _draw() -> void:
 		if not p.is_active():
 			continue
 		var centre := Vector2(p.cell) * TILE + Vector2(TILE, TILE) * 0.5
-		var radius := 12.0 + float(p.transformation) / 12.0
+		var radius := 12.0 + float(p.transform.silhouette()) * 2.0
 		draw_circle(centre, radius, _patron_color(p))
 		if p.willing:
 			draw_arc(centre, radius + 5.0, 0.0, TAU, 24, Color.WHITE, 2.0)
