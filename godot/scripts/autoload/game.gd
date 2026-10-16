@@ -13,12 +13,10 @@ enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
 const WELLWATER_STOCK := 99
-#const AUTOSAVE_SLOT := 1
-const STEPS_PER_EXERTION := 3
+const AUTOSAVE_SLOT := 0        # 0 is the autosave; 1-3 are manual
+const STEPS_PER_EXERTION := 3   # walking is the only way weight comes off
 const MOON_DAYS := 7            # §13: the slice is one lunar week
 const BULK_PER_STAGE := 20      # weight points per visible bulk stage
-const AUTOSAVE_SLOT := 0        # 0 is the autosave; 1-3 are manual
-const REGIONS := ["home", "the downs", "the fens"]
 
 var day: int = 1
 var moon_day: int = 1
@@ -45,11 +43,17 @@ var feasted_this_moon: bool = false
 var affinity: Dictionary = {}           # patron name -> int, persists across days
 var belly_used: int = 0
 
+var pending_relocation := false
+var moved_this_moon := false
+
 
 func start_day() -> void:
-	roster = PatronFactory.build_night(day, patron_count())
+	roster = PatronFactory.build_night(
+		day, patron_count(), RegionDB.species_for(region), RegionDB.strictness_for(region)
+	)
 	forage = ForageMap.build(
-		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB
+		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB,
+		RegionDB.allowed_ingredients(region, IngredientDB)
 	)
 	# Weakened foraging is the price of a skipped feeding. §6.6
 	searches_left = maxi(1, Levels.searches() - (1 if weakened_days > 0 else 0))
@@ -57,10 +61,10 @@ func start_day() -> void:
 	steps_left = steps_per_day()
 	step_count = 0
 	overworld_cell = Vector2i(-1, -1)
+	belly_used = 0
 	top_up_wellwater()
 	roster_ready.emit(roster)
 	set_phase(Phase.FORAGE)
-	belly_used = 0
 
 
 func patron_count() -> int:
@@ -153,65 +157,6 @@ func can_taste(id: String) -> bool:
 	return taste_tests_left > 0 and not Journal.knows_ingredient(id) and has_item(id, 1)
 
 
-func top_up_wellwater() -> void:
-	inventory["wellwater"] = maxi(int(inventory.get("wellwater", 0)), WELLWATER_STOCK)
-
-
-func spend_search() -> bool:
-	if searches_left <= 0:
-		return false
-	searches_left -= 1
-	return true
-
-
-func open_the_bar() -> void:
-	set_phase(Phase.SERVICE)
-
-
-func set_phase(p: Phase) -> void:
-	phase = p
-	phase_changed.emit(p)
-
-
-func advance_day() -> void:
-	day += 1
-	moon_day += 1
-	if moon_day > MOON_DAYS:
-		moon_day = 1
-		feasted_this_moon = false
-	if weakened_days > 0:
-		weakened_days -= 1
-	stock_today.clear()
-	day_advanced.emit(day)
-	daily_attention_tick()
-	start_day()
-	Save.save_game(AUTOSAVE_SLOT)
-
-
-## Visible weight is the passive attention source. §6.6
-func daily_attention_tick() -> void:
-	var v := visible_bulk()
-	var rise := 0
-	if v >= 4:
-		rise = 3
-	elif v >= 2:
-		rise = 2
-	elif v >= 1:
-		rise = 1
-	if rise > 0:
-		add_attention(rise)
-
-
-func add_weight(n: int) -> void:
-	weight = clampi(weight + n, 0, WEIGHT_MAX)
-	weight_changed.emit(weight)
-
-
-func add_attention(n: int) -> void:
-	attention = clampi(attention + n, 0, ATTENTION_MAX)
-	attention_changed.emit(attention)
-	if attention >= ATTENTION_MAX:
-		relocate()
 ## A bigger belly holds more, but also draws more eyes. §6.10
 func belly_capacity() -> int:
 	return 3 + bulk_stage()
@@ -253,13 +198,97 @@ func decline_treat(p_patron: Patron) -> String:
 func raise_affinity(p_name: String, p_delta: int) -> void:
 	affinity[p_name] = clampi(int(affinity.get(p_name, 0)) + p_delta, 0, 10)
 
+
+func top_up_wellwater() -> void:
+	inventory["wellwater"] = maxi(int(inventory.get("wellwater", 0)), WELLWATER_STOCK)
+
+
+func spend_search() -> bool:
+	if searches_left <= 0:
+		return false
+	searches_left -= 1
+	return true
+
+
+func open_the_bar() -> void:
+	set_phase(Phase.SERVICE)
+
+
+func set_phase(p: Phase) -> void:
+	phase = p
+	phase_changed.emit(p)
+
+
+func advance_day() -> void:
+	day += 1
+	moon_day += 1
+	if moon_day > MOON_DAYS:
+		moon_day = 1
+		feasted_this_moon = false
+		moved_this_moon = false
+	if weakened_days > 0:
+		weakened_days -= 1
+	stock_today.clear()
+	day_advanced.emit(day)
+	daily_attention_tick()
+	start_day()
+	Save.save_game(AUTOSAVE_SLOT)
+
+
+## Visible weight is the passive attention source. §6.6
+func daily_attention_tick() -> void:
+	var v := visible_bulk()
+	var rise := 0
+	if v >= 4:
+		rise = 3
+	elif v >= 2:
+		rise = 2
+	elif v >= 1:
+		rise = 1
+	if rise > 0:
+		add_attention(rise)
+
+
+func add_weight(n: int) -> void:
+	weight = clampi(weight + n, 0, WEIGHT_MAX)
+	weight_changed.emit(weight)
+
+
+func add_attention(n: int) -> void:
+	attention = clampi(attention + n, 0, ATTENTION_MAX)
+	attention_changed.emit(attention)
+	if attention >= ATTENTION_MAX:
+		relocate()
+
+
 ## No death, no banishment, ever. The bar simply walks. §6.7
 func relocate() -> void:
-	var i := REGIONS.find(region)
-	region = REGIONS[(i + 1) % REGIONS.size()]
+	region = RegionDB.next_unlocked(region, Levels.level)
 	attention = 0
+	pending_relocation = true
 	attention_changed.emit(attention)
 	relocated.emit(region)
+
+
+## Where the next scene change should land. Keeps every caller honest.
+func next_scene() -> String:
+	if pending_relocation:
+		return "res://scenes/relocation/relocation.tscn"
+	return "res://scenes/forage/forage.tscn"
+
+
+func can_move_on() -> bool:
+	if moved_this_moon:
+		return false
+	return RegionDB.next_unlocked(region, Levels.level) != region
+
+
+## Player-initiated move, once a moon. §6.7
+func move_on() -> void:
+	if not can_move_on():
+		return
+	moved_this_moon = true
+	relocate()
 
 
 func add_item(id: String, n: int = 1) -> void:
@@ -300,11 +329,13 @@ func reset_run() -> void:
 	attention = 0
 	weakened_days = 0
 	feasted_this_moon = false
+	pending_relocation = false
+	moved_this_moon = false
+	affinity.clear()
+	belly_used = 0
 	inventory.clear()
 	stock_today.clear()
 	Levels.reset()
 	Journal.reset()
 	Journal.seed_starter()
 	start_day()
-	affinity.clear()
-	belly_used = 0

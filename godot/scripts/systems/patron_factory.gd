@@ -1,6 +1,6 @@
 class_name PatronFactory
 extends RefCounted
-## Builds a night's roster. Deterministic per day, so a day is reproducible.
+## Builds a night's roster. Deterministic per day and per region.
 ## Design ref: docs/design.md §7.1 (species), §7.3 (archetypes)
 
 const WILDCARD_CHANCE := 0.17          # §7.3 — "rare, roughly 1 in 6"
@@ -66,16 +66,17 @@ const SPECIES := {
 }
 
 
-static func build_night(p_day: int, p_count: int) -> Array:
+static func build_night(p_day: int, p_count: int, p_species: Array = [],
+		p_strictness: float = 0.0) -> Array:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("moonswill-roster-%d" % p_day)
+	rng.seed = hash("moonswill-roster-%d-%s" % [p_day, Game.region])
 	var out: Array = []
-	var keys: Array = SPECIES.keys()
+	var keys: Array = p_species if not p_species.is_empty() else SPECIES.keys()
 	var used := {}
 	for _i in p_count:
 		var sp: String = keys[rng.randi_range(0, keys.size() - 1)]
 		var nm := _pick_name(rng, sp, used)
-		var pt := Patron.make(nm, sp, _make_request(rng, sp))
+		var pt := Patron.make(nm, sp, _make_request(rng, sp, p_strictness))
 		# Affinity persists by name, so a regular stays a regular. §6.11
 		pt.affinity = int(Game.affinity.get(nm, 0))
 		pt.treat = TreatFactory.roll(sp, pt.affinity, rng)
@@ -106,7 +107,8 @@ static func _roll_kind(rng: RandomNumberGenerator) -> PatronRequest.Kind:
 	return PatronRequest.Kind.PROXY
 
 
-static func _make_request(rng: RandomNumberGenerator, p_species: String) -> PatronRequest:
+static func _make_request(rng: RandomNumberGenerator, p_species: String,
+		p_strictness: float = 0.0) -> PatronRequest:
 	var kind := _roll_kind(rng)
 	if kind == PatronRequest.Kind.WILDCARD:
 		return PatronRequest.make(kind, WILDCARD_LINE, {}, 1.0)
@@ -130,6 +132,7 @@ static func _make_request(rng: RandomNumberGenerator, p_species: String) -> Patr
 			strict = 1.15
 		PatronRequest.Kind.VAGUE:
 			strict = 0.85
+	strict += p_strictness      # the further out you go, the fussier they are
 
 	return PatronRequest.make(kind, _line(rng, p_species, kind), want, strict)
 

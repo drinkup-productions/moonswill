@@ -16,16 +16,21 @@ const THEMES := [
 	{"name": "Greyhollow",    "tags": ["bitter", "bog"]},
 ]
 
-const THEME_BIAS := 0.75     # how often a filler pick matches the spot's theme
+const THEME_BIAS := 0.75
 
-var spots: Array = []        # { id:int, name:String, tags:Array, pool:Dictionary, searched:bool }
+var spots: Array = []
+var allowed: Array = []          # region palette; empty means everything
 
 
 static func build(p_day: int, p_spot_count: int, p_pool_size: int,
-		p_needed_tags: Array, p_db: Node) -> ForageMap:
+		p_needed_tags: Array, p_db: Node, p_allowed: Array = []) -> ForageMap:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("moonswill-forage-%d" % p_day)
+	rng.seed = hash("moonswill-forage-%d-%s" % [p_day, Game.region])
 	var m := ForageMap.new()
+	m.allowed = p_allowed.duplicate()
+	if m.allowed.is_empty():
+		for id in p_db.all.keys():
+			m.allowed.append(id)
 
 	var themes: Array = THEMES.duplicate()
 	_shuffle(rng, themes)
@@ -40,8 +45,6 @@ static func build(p_day: int, p_spot_count: int, p_pool_size: int,
 			"searched": false,
 		})
 
-	# Guarantee every tag the roster needs is reachable. Then collisions,
-	# not luck, are what make it tight.
 	for t in p_needed_tags:
 		var target := m._spot_for_tag(rng, t)
 		if not target.is_empty():
@@ -69,7 +72,6 @@ func open_spots() -> Array:
 	return out
 
 
-## Spends the spot and returns what it held. Empty if already picked.
 func search(p_id: int) -> Dictionary:
 	var s := spot(p_id)
 	if s.is_empty() or s["searched"]:
@@ -78,6 +80,14 @@ func search(p_id: int) -> Dictionary:
 	s["pool"] = {}
 	s["searched"] = true
 	return got
+
+
+func _candidates(p_db: Node) -> Array:
+	var out: Array = []
+	for id in allowed:
+		if not p_db.is_diluent(id):
+			out.append(id)
+	return out
 
 
 func _pool_total(s: Dictionary) -> int:
@@ -101,7 +111,7 @@ func _spot_for_tag(rng: RandomNumberGenerator, p_tag: String) -> Dictionary:
 
 func _force(rng: RandomNumberGenerator, s: Dictionary, p_tag: String, db: Node) -> void:
 	var carriers: Array = []
-	for id in db.all.keys():
+	for id in allowed:
 		if db.is_diluent(id):
 			continue
 		if db.get_ingredient(id).tags.has(p_tag):
@@ -113,20 +123,17 @@ func _force(rng: RandomNumberGenerator, s: Dictionary, p_tag: String, db: Node) 
 
 
 func _add_random(rng: RandomNumberGenerator, s: Dictionary, db: Node) -> void:
+	var pool := _candidates(db)
+	if pool.is_empty():
+		return
 	var themed: Array = []
-	var all_ids: Array = []
-	for id in db.all.keys():
-		if db.is_diluent(id):
-			continue
-		all_ids.append(id)
+	for id in pool:
 		var ing: Ingredient = db.get_ingredient(id)
 		for t in s["tags"]:
 			if ing.tags.has(t):
 				themed.append(id)
 				break
-	if all_ids.is_empty():
-		return
-	var source: Array = themed if (not themed.is_empty() and rng.randf() < THEME_BIAS) else all_ids
+	var source: Array = themed if (not themed.is_empty() and rng.randf() < THEME_BIAS) else pool
 	var pick: String = source[rng.randi_range(0, source.size() - 1)]
 	_bump(s, pick)
 

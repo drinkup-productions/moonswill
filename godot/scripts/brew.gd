@@ -208,6 +208,7 @@ func _brew() -> void:
 		Journal.learn_ingredient(id, ing.tags)
 		Game.take_item(id, 1)
 
+	# The dose sticks. It is what makes them catchable at the moon. §6.5
 	current.transform.apply(res)
 
 	var wanted := "NO TARGET — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
@@ -273,7 +274,7 @@ func _offer_moon() -> void:
 	skip.pressed.connect(func() -> void:
 		Game.skip_feast()
 		Game.advance_day()
-		get_tree().change_scene_to_file(FORAGE_SCENE)
+		get_tree().change_scene_to_file(Game.next_scene())
 	)
 	choice_row.add_child(skip)
 
@@ -358,6 +359,6 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_R:
 			if Game.phase == Game.Phase.FORAGE:
-				get_tree().change_scene_to_file(FORAGE_SCENE)
+				get_tree().change_scene_to_file(Game.next_scene())
 			else:
 				get_tree().reload_current_scene()

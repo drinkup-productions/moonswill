@@ -2,7 +2,8 @@ extends Control
 ## Grey-box morning forage. Design ref: docs/design.md §6.14
 ## Contents are visible before a search is spent. Choosing is the game.
 
-const BATTLE_SCENE := "res://scenes/overworld/overworld.tscn"
+const OVERWORLD_SCENE := "res://scenes/overworld/overworld.tscn"
+const BREW_SCENE := "res://scenes/brew/brew.tscn"
 
 var status_lbl: Label
 var level_lbl: Label
@@ -15,19 +16,6 @@ var open_btn: Button
 var journal_ui: JournalUI
 var save_ui: SaveUI
 
-
-func _ensure_save() -> void:
-	if save_ui == null:
-		save_ui = SaveUI.new()
-		add_child(save_ui)
-
-
-func _toggle_save() -> void:
-	_ensure_save()
-	if save_ui.is_open():
-		save_ui.close()
-	else:
-		save_ui.open()
 
 func _ready() -> void:
 	if Game.forage == null:
@@ -80,6 +68,20 @@ func _toggle_journal() -> void:
 		journal_ui.open()
 
 
+func _ensure_save() -> void:
+	if save_ui == null:
+		save_ui = SaveUI.new()
+		add_child(save_ui)
+
+
+func _toggle_save() -> void:
+	_ensure_save()
+	if save_ui.is_open():
+		save_ui.close()
+	else:
+		save_ui.open()
+
+
 func _on_new_run() -> void:
 	Save.delete_save(Game.AUTOSAVE_SLOT)
 	Game.reset_run()
@@ -102,12 +104,16 @@ func _on_search(p_id: int) -> void:
 
 func _on_open() -> void:
 	Game.open_the_bar()
-	get_tree().change_scene_to_file("res://scenes/brew/brew.tscn")
+	get_tree().change_scene_to_file(BREW_SCENE)
 
 
-## Temporary until the overworld exists (7f): roll an encounter on the spot.
 func _on_wander() -> void:
-	get_tree().change_scene_to_file(BATTLE_SCENE)
+	get_tree().change_scene_to_file(OVERWORLD_SCENE)
+
+
+func _on_move_on() -> void:
+	Game.move_on()
+	get_tree().change_scene_to_file(Game.next_scene())
 
 
 func _input(event: InputEvent) -> void:
@@ -122,9 +128,11 @@ func _input(event: InputEvent) -> void:
 			_toggle_save()
 			get_viewport().set_input_as_handled()
 
+
 func _refresh() -> void:
-	status_lbl.text = "Day %d (moon %d/%d)  ·  %s     searches %d / %d     taste %d     weight %d (stage %d, seen %d)     attention %d" % [
+	status_lbl.text = "Day %d (moon %d/%d)  ·  %s  ·  %s     searches %d / %d     taste %d     weight %d (stage %d, seen %d)     attention %d" % [
 		Game.day, Game.moon_day, Game.MOON_DAYS,
+		RegionDB.display(Game.region),
 		"weakened" if Game.is_weakened() else "steady",
 		Game.searches_left, Levels.searches(), Game.taste_tests_left,
 		Game.weight, Game.bulk_stage(), Game.visible_bulk(), Game.attention,
@@ -144,7 +152,8 @@ func _refresh_customers() -> void:
 		return
 	for p in Game.roster:
 		var req: PatronRequest = p.req
-		_label(need_box, "%s — %s — %s" % [p.name, p.species, PatronRequest.LABEL[req.kind]])
+		var tag := "  (regular)" if p.affinity >= 3 else ""
+		_label(need_box, "%s — %s — %s%s" % [p.name, p.species, PatronRequest.LABEL[req.kind], tag])
 		_label(need_box, "      %s" % req.line)
 		var mark_txt := "no target — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
 		_label(need_box, "      mark: %s   (%s)" % [mark_txt, req.note])
@@ -225,18 +234,23 @@ func _build_ui() -> void:
 	col.add_child(head)
 	status_lbl = _label(head, "")
 	level_lbl = _label(head, "")
-	var save_btn := Button.new()
-	save_btn.text = "save / load  (S)"
-	save_btn.pressed.connect(_toggle_save)
-	head.add_child(save_btn)
 	var j_btn := Button.new()
 	j_btn.text = "journal  (J)"
 	j_btn.pressed.connect(_toggle_journal)
 	head.add_child(j_btn)
+	var save_btn := Button.new()
+	save_btn.text = "save / load  (S)"
+	save_btn.pressed.connect(_toggle_save)
+	head.add_child(save_btn)
 	var wander_btn := Button.new()
 	wander_btn.text = "wander out"
 	wander_btn.pressed.connect(_on_wander)
 	head.add_child(wander_btn)
+	var move_btn := Button.new()
+	move_btn.text = "move on  (once a moon)"
+	move_btn.disabled = not Game.can_move_on()
+	move_btn.pressed.connect(_on_move_on)
+	head.add_child(move_btn)
 	var new_btn := Button.new()
 	new_btn.text = "new run"
 	new_btn.pressed.connect(_on_new_run)
