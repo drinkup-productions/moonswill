@@ -2,9 +2,10 @@ extends Control
 ## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.15, §7.3
 
 const MAX_SELECT := 3
+const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
 
 var queue: Array = []
-var current: Dictionary = {}
+var current: Patron = null
 var selected: Array[String] = []
 var served := 0
 var total := 0
@@ -43,25 +44,21 @@ func _label(parent: Node, text: String) -> Label:
 
 
 func _start_night() -> void:
-	# TEMP: seed stock until the forage scene exists
-	Game.inventory = {
-		"sunmelon": 3, "bogroot": 3, "emberpepper": 3, "cloudberry": 3,
-		"ironoats": 3, "marshfig": 3, "skywort": 3, "honeycap": 3,
-		"stoneplum": 3, "glowmoss": 3, "wellwater": 99,
-	}
-	queue = [
-		{"name": "Rill", "species": "felinid",
-			"req": PatronRequest.make(PatronRequest.Kind.SPECIFIC, '"Slimmer. Taller. Sleek."', {"height": 4, "belly": -3}, 1.2)},
-		{"name": "Bess", "species": "bovine",
-			"req": PatronRequest.make(PatronRequest.Kind.VAGUE, '"I want to feel... fuller. Softer."', {"belly": 5, "chest": 3}, 0.85)},
-		{"name": "Gorst", "species": "equine",
-			"req": PatronRequest.make(PatronRequest.Kind.SPECIFIC, '"Taller. Stronger."', {"height": 4, "muscle": 4}, 1.15)},
-		{"name": "Marrow", "species": "skull-dog",
-			"req": PatronRequest.make(PatronRequest.Kind.WILDCARD, '"...Whatever you have got. Surprise me."', {}, 1.0)},
-	]
+	# Fallback stock, only when opening brew.tscn directly with F6.
+	if Game.inventory.is_empty():
+		Game.inventory = {
+			"sunmelon": 3, "bogroot": 3, "emberpepper": 3, "cloudberry": 3,
+			"ironoats": 3, "marshfig": 3, "skywort": 3, "honeycap": 3,
+			"stoneplum": 3, "glowmoss": 3, "wellwater": 99,
+		}
+	if Game.roster.is_empty():
+		Game.start_day()
+
+	queue = Game.roster.duplicate()
 	served = 0
 	total = 0
 	selected.clear()
+	Game.set_phase(Game.Phase.SERVICE)
 	_next_patron()
 
 
@@ -82,7 +79,9 @@ func _next_patron() -> void:
 
 
 func _refresh_status() -> void:
-	status_lbl.text = "Patron %d of %d     total satisfaction: %d" % [served + 1, served + queue.size(), total]
+	status_lbl.text = "Day %d — Patron %d of %d     total satisfaction: %d" % [
+		Game.day, served + 1, served + queue.size(), total
+	]
 
 
 func _selected_count(id: String) -> int:
@@ -180,10 +179,10 @@ func _end_night() -> void:
 			Levels.level, Levels.searches(), Levels.yield_per_search()
 		]
 	Game.add_weight(served)     # placeholder until the feast drives this (§6.10)
-	Game.advance_day()
+	Game.advance_day()          # builds tomorrow's roster and spots, phase -> FORAGE
 	result_lbl.text = msg
 	request_lbl.text = ""
-	note_lbl.text = "Journal kept. Progress kept. Press R to run the night again."
+	note_lbl.text = "Journal kept. Progress kept. Stock carries. Press R for the morning."
 	badge_lbl.text = ""
 	name_lbl.text = ""
 	species_lbl.text = ""
@@ -307,4 +306,7 @@ func _refresh_journal() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-		get_tree().reload_current_scene()
+		if Game.phase == Game.Phase.FORAGE:
+			get_tree().change_scene_to_file(FORAGE_SCENE)
+		else:
+			get_tree().reload_current_scene()

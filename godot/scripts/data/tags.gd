@@ -18,3 +18,21 @@ const EFFECTS := {
 
 static func effect_of(tag: String) -> Dictionary:
 	return EFFECTS.get(tag, {})
+
+
+## Which tags move a given attribute. Used by foraging to work out what a
+## night's roster actually demands. §6.14
+static func tags_raising(p_attr: String) -> Array:
+	var out: Array = []
+	for t in EFFECTS.keys():
+		if int(EFFECTS[t].get(p_attr, 0)) > 0:
+			out.append(t)
+	return out
+
+
+static func tags_lowering(p_attr: String) -> Array:
+	var out: Array = []
+	for t in EFFECTS.keys():
+		if int(EFFECTS[t].get(p_attr, 0)) < 0:
+			out.append(t)
+	return out

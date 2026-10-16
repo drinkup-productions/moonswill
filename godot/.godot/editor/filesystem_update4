@@ -1,4 +1,5 @@
-res://scenes/brew/brew.tscn
-res://scripts/brew.gd
 res://scenes/boot.tscn
+res://scripts/brew.gd
 res://scenes/feast/feast.tscn
+res://scenes/brew/brew.tscn
+res://scenes/forage/forage.tscn

@@ -5,11 +5,13 @@ signal phase_changed(phase: int)
 signal day_advanced(day: int)
 signal weight_changed(weight: int)
 signal attention_changed(attention: int)
+signal roster_ready(roster: Array)
 
 enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
 
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
+const WELLWATER_STOCK := 99
 
 var day: int = 1
 var region: String = "home"
@@ -18,6 +20,66 @@ var weight: int = 0
 var attention: int = 0
 var inventory: Dictionary = {}          # String ingredient_id -> int count
 var stock_today: Array[String] = []     # what was foraged today
+
+var roster: Array = []                  # Array[Patron] — tonight's customers
+var forage: ForageMap = null            # today's spots
+var searches_left: int = 0
+
+
+## Builds a fresh day: roster, spots, search budget. Called by boot and by
+## advance_day. Autoload order puts IngredientDB last, so this must not run
+## from _ready(). §6.14
+func start_day() -> void:
+	roster = PatronFactory.build_night(day, patron_count())
+	forage = ForageMap.build(
+		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB
+	)
+	searches_left = Levels.searches()
+	top_up_wellwater()
+	roster_ready.emit(roster)
+	set_phase(Phase.FORAGE)
+
+
+func patron_count() -> int:
+	return 4 if Levels.level < 3 else 5
+
+
+## Always offer more spots than searches, so choosing is the game. §6.14
+func spots_offered() -> int:
+	return Levels.searches() + 3
+
+
+## Every tag that would move a requested attribute. Wildcards want nothing
+## in particular. Two patrons wanting the same tag is the puzzle. §6.14
+func needed_tags() -> Array:
+	var out: Array = []
+	if roster.is_empty():
+		return out
+	for p in roster:
+		if p.req == null or p.req.is_wildcard():
+			continue
+		for a in p.req.want.keys():
+			var v: int = int(p.req.want[a])
+			var ts: Array = Tags.tags_raising(a) if v > 0 else Tags.tags_lowering(a)
+			for t in ts:
+				if not out.has(t):
+					out.append(t)
+	return out
+
+
+func top_up_wellwater() -> void:
+	inventory["wellwater"] = maxi(int(inventory.get("wellwater", 0)), WELLWATER_STOCK)
+
+
+func spend_search() -> bool:
+	if searches_left <= 0:
+		return false
+	searches_left -= 1
+	return true
+
+
+func open_the_bar() -> void:
+	set_phase(Phase.SERVICE)
 
 
 func set_phase(p: Phase) -> void:
@@ -28,8 +90,8 @@ func set_phase(p: Phase) -> void:
 func advance_day() -> void:
 	day += 1
 	stock_today.clear()
-	set_phase(Phase.FORAGE)
 	day_advanced.emit(day)
+	start_day()
 
 
 func add_weight(n: int) -> void:
@@ -74,4 +136,4 @@ func reset_run() -> void:
 	attention = 0
 	inventory.clear()
 	stock_today.clear()
-	set_phase(Phase.FORAGE)
+	start_day()

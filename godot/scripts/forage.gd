@@ -1,0 +1,191 @@
+extends Control
+## Grey-box morning forage. Design ref: docs/design.md §6.14
+## Contents are visible before a search is spent. Choosing is the game.
+
+var status_lbl: Label
+var need_box: VBoxContainer
+var cover_lbl: Label
+var spot_grid: GridContainer
+var pantry_lbl: RichTextLabel
+var hint_lbl: Label
+var open_btn: Button
+
+
+func _ready() -> void:
+	if Game.forage == null:
+		Game.start_day()
+	_build_ui()
+	_refresh()
+
+
+func _clear(parent: Node) -> void:
+	for c in parent.get_children():
+		parent.remove_child(c)
+		c.queue_free()
+
+
+func _label(parent: Node, text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	parent.add_child(l)
+	return l
+
+
+func _count(d: Dictionary) -> int:
+	var n := 0
+	for k in d:
+		n += int(d[k])
+	return n
+
+
+func _tag_covered(t: String) -> bool:
+	for id in Game.inventory.keys():
+		if int(Game.inventory[id]) <= 0:
+			continue
+		var ing: Ingredient = IngredientDB.get_ingredient(id)
+		if ing != null and ing.tags.has(t):
+			return true
+	return false
+
+
+func _on_search(p_id: int) -> void:
+	if Game.searches_left <= 0:
+		return
+	var got := Game.forage.search(p_id)
+	if got.is_empty():
+		return
+	Game.spend_search()
+	for id in got.keys():
+		Game.add_item(id, int(got[id]))
+		Game.stock_today.append(id)
+	hint_lbl.text = "Gathered %d." % _count(got)
+	_refresh()
+
+
+func _on_open() -> void:
+	Game.open_the_bar()
+	get_tree().change_scene_to_file("res://scenes/brew/brew.tscn")
+
+
+func _refresh() -> void:
+	status_lbl.text = "Day %d — morning     searches left: %d     weight %d     attention %d" % [
+		Game.day, Game.searches_left, Game.weight, Game.attention
+	]
+	_refresh_customers()
+	_refresh_coverage()
+	_refresh_spots()
+	_refresh_pantry()
+	_refresh_footer()
+
+
+func _refresh_customers() -> void:
+	_clear(need_box)
+	if Game.roster.is_empty():
+		_label(need_box, "Nobody booked in. Odd.")
+		return
+	for p in Game.roster:
+		var req: PatronRequest = p.req
+		_label(need_box, "%s — %s — %s" % [p.name, p.species, PatronRequest.LABEL[req.kind]])
+		_label(need_box, "      %s" % req.line)
+		var mark_txt := "no target — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
+		_label(need_box, "      mark: %s   (%s)" % [mark_txt, req.note])
+
+
+func _refresh_coverage() -> void:
+	var parts: Array[String] = []
+	for t in Game.needed_tags():
+		parts.append("%s %s" % [t, "ok" if _tag_covered(t) else ".."])
+	cover_lbl.text = "   ".join(parts) if not parts.is_empty() else "nothing specific tonight"
+
+
+func _refresh_spots() -> void:
+	_clear(spot_grid)
+	for s in Game.forage.spots:
+		var b := Button.new()
+		var lines: Array[String] = []
+		var pool: Dictionary = s["pool"]
+		if pool.is_empty():
+			lines.append("(picked clean)")
+		else:
+			for id in pool.keys():
+				var ing: Ingredient = IngredientDB.get_ingredient(id)
+				lines.append("%s x%d" % [ing.display_name, int(pool[id])])
+		b.text = "%s\n[%s]\n%s" % [
+			s["name"], ", ".join(PackedStringArray(s["tags"])), "\n".join(lines)
+		]
+		b.custom_minimum_size = Vector2(196, 104)
+		b.disabled = s["searched"] or Game.searches_left <= 0
+		b.pressed.connect(_on_search.bind(int(s["id"])))
+		spot_grid.add_child(b)
+
+
+func _refresh_pantry() -> void:
+	var parts: Array[String] = []
+	for id in Game.inventory.keys():
+		var n: int = int(Game.inventory[id])
+		if n <= 0:
+			continue
+		var ing: Ingredient = IngredientDB.get_ingredient(id)
+		if ing == null:
+			continue
+		parts.append("%s x%d" % [ing.display_name, n])
+	parts.sort()
+	pantry_lbl.text = "[b]Pantry[/b]  " + (", ".join(parts) if not parts.is_empty() else "empty")
+
+
+func _refresh_footer() -> void:
+	var missing: Array[String] = []
+	for t in Game.needed_tags():
+		if not _tag_covered(t):
+			missing.append(t)
+	if Game.searches_left <= 0:
+		hint_lbl.text = "No searches left today. Open the bar with what you have."
+	elif missing.is_empty():
+		hint_lbl.text = "Every needed tag is in the pantry. Leftovers carry to tomorrow."
+	else:
+		hint_lbl.text = "Still uncovered: %s" % ", ".join(missing)
+
+
+func _build_ui() -> void:
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_bottom", 12)
+	add_child(margin)
+
+	var scroll := ScrollContainer.new()
+	margin.add_child(scroll)
+
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(col)
+
+	status_lbl = _label(col, "")
+
+	_label(col, "Tonight's customers")
+	var card := PanelContainer.new()
+	col.add_child(card)
+	need_box = VBoxContainer.new()
+	card.add_child(need_box)
+
+	_label(col, "Tags tonight needs")
+	cover_lbl = _label(col, "")
+
+	_label(col, "The wilds  —  contents visible before you search")
+	spot_grid = GridContainer.new()
+	spot_grid.columns = 4
+	col.add_child(spot_grid)
+
+	pantry_lbl = RichTextLabel.new()
+	pantry_lbl.bbcode_enabled = true
+	pantry_lbl.custom_minimum_size = Vector2(0, 56)
+	col.add_child(pantry_lbl)
+
+	hint_lbl = _label(col, "")
+
+	open_btn = Button.new()
+	open_btn.text = "Open the bar ->"
+	open_btn.pressed.connect(_on_open)
+	col.add_child(open_btn)
