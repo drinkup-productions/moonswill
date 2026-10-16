@@ -2,6 +2,8 @@ extends Control
 ## Grey-box morning forage. Design ref: docs/design.md §6.14
 ## Contents are visible before a search is spent. Choosing is the game.
 
+const BATTLE_SCENE := "res://scenes/overworld/overworld.tscn"
+
 var status_lbl: Label
 var level_lbl: Label
 var need_box: VBoxContainer
@@ -87,6 +89,11 @@ func _on_search(p_id: int) -> void:
 func _on_open() -> void:
 	Game.open_the_bar()
 	get_tree().change_scene_to_file("res://scenes/brew/brew.tscn")
+
+
+## Temporary until the overworld exists (7f): roll an encounter on the spot.
+func _on_wander() -> void:
+	get_tree().change_scene_to_file(BATTLE_SCENE)
 
 
 func _input(event: InputEvent) -> void:
@@ -203,6 +210,10 @@ func _build_ui() -> void:
 	j_btn.text = "journal  (J)"
 	j_btn.pressed.connect(_toggle_journal)
 	head.add_child(j_btn)
+	var wander_btn := Button.new()
+	wander_btn.text = "wander out"
+	wander_btn.pressed.connect(_on_wander)
+	head.add_child(wander_btn)
 	var new_btn := Button.new()
 	new_btn.text = "new run"
 	new_btn.pressed.connect(_on_new_run)

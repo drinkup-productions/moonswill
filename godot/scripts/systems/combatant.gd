@@ -11,7 +11,7 @@ signal downed()
 const BASE_HP := 14
 const BASE_AP := 3
 
-const ATTACKS := [
+const PLAYER_ATTACKS := [
 	{"id": "punch",      "name": "Punch",      "ap": 1, "damage": 4, "weight_scale": 0.0},
 	{"id": "claw",       "name": "Claw",       "ap": 1, "damage": 6, "weight_scale": 0.0},
 	{"id": "belly_slam", "name": "Belly Slam", "ap": 2, "damage": 5, "weight_scale": 1.6},
@@ -19,13 +19,16 @@ const ATTACKS := [
 
 var display_name := ""
 var species := ""
+var def_id := ""               # "" for the player
 var reaction_profile := "feral"
 var transform: Transform
 var is_player := false
+var cell: Vector2i = Vector2i.ZERO
 var max_hp := BASE_HP
 var hp := BASE_HP
 var ap_max := BASE_AP
 var ap := BASE_AP
+var attack_list: Array = []
 var brews: Array = []          # ingredient ids carried, used as combat items
 var effects := {}              # ReactionTable.Kind -> turns remaining
 
@@ -38,6 +41,7 @@ func _init(p_name: String = "", p_species: String = "") -> void:
 	hp = BASE_HP
 	ap_max = BASE_AP
 	ap = BASE_AP
+	attack_list = PLAYER_ATTACKS.duplicate(true)
 
 
 static func make_player() -> Combatant:
@@ -103,7 +107,7 @@ func damage_resist() -> float:
 ## Weight raises Belly Slam damage and its cost. Power that is slow.
 func attacks() -> Array:
 	var out: Array = []
-	for a in ATTACKS:
+	for a in attack_list:
 		var entry: Dictionary = a.duplicate()
 		if float(entry["weight_scale"]) > 0.0:
 			var s := transform.silhouette()
@@ -113,11 +117,13 @@ func attacks() -> Array:
 	return out
 
 
-func attack_damage(p_attack: Dictionary) -> int:
+## Damage dealt BY this combatant TO p_target. The target's resistance
+## applies, not the attacker's — an armoured victim shrugs it off.
+func roll_damage(p_attack: Dictionary, p_target: Combatant) -> int:
 	var d := int(p_attack["damage"])
 	if effects.has(ReactionTable.Kind.ENRAGED):
 		d = int(round(float(d) * 1.5))
-	return maxi(1, d - int(round(float(d) * damage_resist())))
+	return maxi(1, d - int(round(float(d) * p_target.damage_resist())))
 
 
 func is_down() -> bool:

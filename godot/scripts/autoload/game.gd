@@ -13,6 +13,7 @@ const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
 const WELLWATER_STOCK := 99
 const AUTOSAVE_SLOT := 1
+const STEPS_PER_EXERTION := 3      # walking is the only way weight comes off
 
 var day: int = 1
 var region: String = "home"
@@ -27,6 +28,9 @@ var forage: ForageMap = null            # today's spots
 var searches_left: int = 0
 var taste_tests_left: int = 0
 
+var steps_left: int = 0
+var step_count: int = 0
+var overworld_cell: Vector2i = Vector2i(-1, -1)
 
 ## Builds a fresh day: roster, spots, search budget. Called by boot and by
 ## advance_day. Autoload order puts IngredientDB last, so this must not run
@@ -38,6 +42,9 @@ func start_day() -> void:
 	)
 	searches_left = Levels.searches()
 	taste_tests_left = Levels.taste_tests_per_day()
+	steps_left = steps_per_day()
+	step_count = 0
+	overworld_cell = Vector2i(-1, -1)
 	top_up_wellwater()
 	roster_ready.emit(roster)
 	set_phase(Phase.FORAGE)
@@ -154,6 +161,20 @@ func has_item(id: String, n: int = 1) -> bool:
 	return inventory.get(id, 0) >= n
 
 
+## Defeat costs half the pack, rounded against the player. Wellwater is a
+## pantry staple and survives. §8
+func lose_half_inventory() -> void:
+	for id in inventory.keys():
+		if id == "wellwater":
+			continue
+		var n: int = int(inventory[id])
+		var keep := int(floor(float(n) / 2.0))
+		if keep <= 0:
+			inventory.erase(id)
+		else:
+			inventory[id] = keep
+
+
 ## Wipes the run, the level, and the journal. Fresh save, fresh discovery.
 func reset_run() -> void:
 	day = 1
@@ -166,3 +187,21 @@ func reset_run() -> void:
 	Journal.reset()
 	Journal.seed_starter()
 	start_day()
+
+## Fat means fewer trips. The spiral, mechanised. §6.10
+func steps_per_day() -> int:
+	return maxi(8, 36 - int(floor(float(weight) / 3.0)))
+
+
+func spend_step() -> bool:
+	if steps_left <= 0:
+		return false
+	steps_left -= 1
+	step_count += 1
+	if step_count % STEPS_PER_EXERTION == 0:
+		add_weight(-1)
+	return true
+
+
+func exertion_progress() -> int:
+	return STEPS_PER_EXERTION - (step_count % STEPS_PER_EXERTION)
