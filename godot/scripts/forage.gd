@@ -106,9 +106,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
-	status_lbl.text = "Day %d — morning     searches %d / %d     taste tests %d     weight %d     attention %d" % [
-		Game.day, Game.searches_left, Levels.searches(),
-		Game.taste_tests_left, Game.weight, Game.attention
+	status_lbl.text = "Day %d (moon %d/%d)  ·  %s     searches %d / %d     taste %d     weight %d (stage %d, seen %d)     attention %d" % [
+		Game.day, Game.moon_day, Game.MOON_DAYS,
+		"weakened" if Game.is_weakened() else "steady",
+		Game.searches_left, Levels.searches(), Game.taste_tests_left,
+		Game.weight, Game.bulk_stage(), Game.visible_bulk(), Game.attention,
 	]
 	level_lbl.text = Levels.progress_text()
 	_refresh_customers()

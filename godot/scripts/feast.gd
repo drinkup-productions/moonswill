@@ -1,8 +1,10 @@
 extends Node2D
 ## Grey-box feast scene. Draws everything; no art assets required.
 ## Design ref: docs/design.md §6.5
+## Patrons arrive already dosed — that is the whole strategy.
 
 const TILE := 48
+const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
 
 var grid: FeastGrid
 var ctrl: FeastController
@@ -26,23 +28,55 @@ func _ready() -> void:
 	_refresh()
 
 
+func _free_cells() -> Array:
+	var out: Array = []
+	for y in grid.h:
+		for x in grid.w:
+			var c := Vector2i(x, y)
+			if not grid.is_blocked(c) and not grid.is_exit(c) and c != ctrl.chugs_cell:
+				out.append(c)
+	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.y == b.y:
+			return a.x < b.x
+		return a.y < b.y
+	)
+	return out
+
+
 func _spawn_patrons() -> void:
-	var data := [
-		{"id": "bess",  "name": "Bess",  "species": "bovine",      "cell": Vector2i(2, 2),  "tf": 60, "willing": false},
-		{"id": "rill",  "name": "Rill",  "species": "felinid",     "cell": Vector2i(12, 2), "tf": 20, "willing": false},
-		{"id": "gorst", "name": "Gorst", "species": "equine",      "cell": Vector2i(2, 5),  "tf": 45, "willing": false},
-		{"id": "nim",   "name": "Nim",   "species": "human",       "cell": Vector2i(12, 5), "tf": 0,  "willing": false},
-		{"id": "pim",   "name": "Pim",   "species": "lizard-folk", "cell": Vector2i(7, 4),  "tf": 85, "willing": true},
-	]
-	for d in data:
+	var seeds: Array = Game.roster if not Game.roster.is_empty() else _demo_roster()
+	var free := _free_cells()
+	if free.is_empty():
+		return
+	var step := maxi(1, int(free.size() / maxi(1, seeds.size() + 1)))
+	var taken := {}
+	for i in seeds.size():
+		var seed_p = seeds[i]
 		var p := FeastPatron.new()
-		p.id = d.id
-		p.display_name = d.name
-		p.species = d.species
-		p.cell = d.cell
-		p.set_legacy_transformation(d.tf)
-		p.willing = d.willing
+		p.display_name = str(seed_p.name)
+		p.species = str(seed_p.species)
+		p.transform.deserialize(seed_p.transform.serialize())
+		p.willing = bool(seed_p.is_willing())
+		var idx := mini(free.size() - 1, step * (i + 1))
+		while taken.has(idx) and idx < free.size() - 1:
+			idx += 1
+		taken[idx] = true
+		p.cell = free[idx]
 		ctrl.register_patron(p)
+
+
+func _demo_roster() -> Array:
+	var out: Array = []
+	var specs := [
+		["Bess", "bovine", 60], ["Rill", "felinid", 20], ["Gorst", "equine", 45],
+		["Nim", "human", 0], ["Pim", "lizard-folk", 85],
+	]
+	for s in specs:
+		var p := Patron.make(str(s[0]), str(s[1]),
+			PatronRequest.make(PatronRequest.Kind.VAGUE, "", {}, 1.0))
+		p.transform.points["belly"] = int(round(float(s[2]) * 6.0 / 17.0))
+		out.append(p)
+	return out
 
 
 func _build_hud() -> void:
@@ -67,8 +101,6 @@ func _speed_report() -> String:
 	return ", ".join(parts)
 
 
-## A live turn is the condition for ending it. Action points are only the
-## condition for moving. Conflating the two softlocks at zero AP.
 func _unhandled_input(event: InputEvent) -> void:
 	if busy or ctrl.finished or ctrl.resolved:
 		return
@@ -95,7 +127,7 @@ func _move(dir: Vector2i) -> void:
 		return
 	queue_redraw()
 	if ctrl.ap <= 0 and not busy:
-		_end_turn()          # nothing left to spend, so don't make them say so
+		_end_turn()
 
 
 func _end_turn() -> void:
@@ -128,7 +160,10 @@ func _on_escaped(p: FeastPatron) -> void:
 
 
 func _on_ended(caught: int, escaped: int) -> void:
-	hint.text = "%s   Eaten %d, escaped %d. Press R to restart." % [ctrl.result_line(), caught, escaped]
+	Game.register_feast_result(caught, escaped)
+	hint.text = "%s   Eaten %d, escaped %d.   Press R to open tomorrow." % [
+		ctrl.result_line(), caught, escaped
+	]
 
 
 func _refresh() -> void:
@@ -147,7 +182,6 @@ func _draw() -> void:
 			var rect := Rect2(Vector2(x, y) * TILE, Vector2(TILE, TILE))
 			draw_rect(rect, _tile_color(grid.tile_at(cell)))
 
-	# escape routes
 	for p in ctrl.patrons:
 		if not p.is_active() or p.willing:
 			continue
@@ -155,7 +189,6 @@ func _draw() -> void:
 		for step in path:
 			draw_circle(Vector2(step) * TILE + Vector2(TILE, TILE) * 0.5, 3.0, Color(1, 1, 1, 0.22))
 
-	# patrons
 	for p in ctrl.patrons:
 		if not p.is_active():
 			continue
@@ -165,7 +198,6 @@ func _draw() -> void:
 		if p.willing:
 			draw_arc(centre, radius + 5.0, 0.0, TAU, 24, Color.WHITE, 2.0)
 
-	# chugs
 	var cc := Vector2(ctrl.chugs_cell) * TILE + Vector2(TILE, TILE) * 0.5
 	draw_circle(cc, 14.0 + float(Game.weight) / 14.0, Color(0.66, 0.33, 0.97))
 
@@ -188,6 +220,11 @@ func _patron_color(p: FeastPatron) -> Color:
 		"human":   return Color(0.23, 0.51, 0.96)
 		_:         return Color(0.60, 0.60, 0.65)
 
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-		get_tree().reload_current_scene()
+		if ctrl.finished:
+			Game.advance_day()
+			get_tree().change_scene_to_file(FORAGE_SCENE)
+		else:
+			get_tree().reload_current_scene()

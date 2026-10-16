@@ -48,6 +48,7 @@ static func make_player() -> Combatant:
 	var c := Combatant.new("Chugs", "skull-dog")
 	c.is_player = true
 	c.transform.concealed_stages = Levels.conceal_stages()
+	c.transform.points["belly"] = int(round(float(Game.weight) * 0.3))
 	c.refresh_stats()
 	return c
 

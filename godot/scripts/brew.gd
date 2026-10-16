@@ -1,7 +1,8 @@
 extends Control
-## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.15, §6.16, §7.3
+## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.5, §6.15, §6.16, §7.3
 
 const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
+const FEAST_SCENE := "res://scenes/feast/feast.tscn"
 
 var queue: Array = []
 var current: Patron = null
@@ -22,6 +23,7 @@ var note_lbl: Label
 var shelf_grid: GridContainer
 var vat_box: HBoxContainer
 var result_lbl: RichTextLabel
+var choice_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -64,7 +66,6 @@ func _show_level_up(reached: Array) -> void:
 
 
 func _start_night() -> void:
-	# Fallback stock, only when opening brew.tscn directly with F6.
 	if Game.inventory.is_empty():
 		Game.inventory = {
 			"sunmelon": 3, "bogroot": 3, "emberpepper": 3, "cloudberry": 3,
@@ -99,8 +100,8 @@ func _next_patron() -> void:
 
 
 func _refresh_status() -> void:
-	status_lbl.text = "Day %d — Patron %d of %d     total satisfaction: %d" % [
-		Game.day, served + 1, served + queue.size(), total
+	status_lbl.text = "Day %d (moon %d/%d) — Patron %d of %d     total satisfaction: %d" % [
+		Game.day, Game.moon_day, Game.MOON_DAYS, served + 1, served + queue.size(), total
 	]
 	level_lbl.text = Levels.progress_text()
 
@@ -174,9 +175,13 @@ func _brew() -> void:
 		Journal.learn_ingredient(id, ing.tags)
 		Game.take_item(id, 1)
 
+	# The dose sticks. It is what makes them catchable at the moon. §6.5
+	current.transform.apply(res)
+
 	var wanted := "NO TARGET — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
-	result_lbl.text = "[b]wanted[/b] %s   ·   [b]got[/b] %s\n[b]Satisfaction %d[/b]\n[i]%s[/i]" % [
-		wanted, Attributes.pretty(res), sc,
+	var grown := current.transform.silhouette()
+	result_lbl.text = "[b]wanted[/b] %s   ·   [b]got[/b] %s\n[b]Satisfaction %d[/b]   ·   [i]bulk stage %d[/i]\n[i]%s[/i]" % [
+		wanted, Attributes.pretty(res), sc, grown,
 		BrewCalculator.band_line(sc, req.is_wildcard())
 	]
 	total += sc
@@ -193,16 +198,13 @@ func _brew() -> void:
 
 func _end_night() -> void:
 	var avg := int(round(float(total) / maxi(1, served)))
-	var paid := maxi(Levels.XP_FLOOR, total)      # floored: a bad night still moves
+	var paid := maxi(Levels.XP_FLOOR, total)
 	var reached := Levels.award(total)
 	var msg := "Closing time. Average satisfaction: %d\n+%d xp" % [avg, paid]
 
-	Game.add_weight(served)     # placeholder until the feast drives this (§6.10)
-	Game.advance_day()          # builds tomorrow at the new level, autosaves
-
+	Game.add_weight(served)
 	result_lbl.text = msg
 	request_lbl.text = ""
-	note_lbl.text = "Journal kept. Progress kept. Stock carries. Press R for the morning."
 	badge_lbl.text = ""
 	name_lbl.text = ""
 	species_lbl.text = ""
@@ -212,6 +214,34 @@ func _end_night() -> void:
 
 	if not reached.is_empty():
 		_show_level_up(reached)
+
+	if Game.is_full_moon() and not Game.feasted_this_moon:
+		_offer_moon()
+	else:
+		Game.advance_day()
+		note_lbl.text = "Journal kept. Progress kept. Stock carries. Press R for the morning."
+
+
+func _offer_moon() -> void:
+	note_lbl.text = "Full moon. The regulars are still here, and they have been drinking all month."
+	_clear(choice_row)
+
+	var go := Button.new()
+	go.text = "Hold the feast"
+	go.pressed.connect(func() -> void:
+		Game.set_phase(Game.Phase.FEAST)
+		get_tree().change_scene_to_file(FEAST_SCENE)
+	)
+	choice_row.add_child(go)
+
+	var skip := Button.new()
+	skip.text = "Skip it  (attention -8, two weak days)"
+	skip.pressed.connect(func() -> void:
+		Game.skip_feast()
+		Game.advance_day()
+		get_tree().change_scene_to_file(FORAGE_SCENE)
+	)
+	choice_row.add_child(skip)
 
 
 func _build_ui() -> void:
@@ -275,6 +305,9 @@ func _build_ui() -> void:
 	result_lbl.bbcode_enabled = true
 	result_lbl.custom_minimum_size = Vector2(0, 90)
 	col.add_child(result_lbl)
+
+	choice_row = HBoxContainer.new()
+	col.add_child(choice_row)
 
 
 func _input(event: InputEvent) -> void:
