@@ -2,3 +2,4 @@ res://scenes/boot.tscn
 res://scenes/feast/feast.tscn
 res://scenes/brew/brew.tscn
 res://scenes/forage/forage.tscn
+res://scenes/dev/tf_debug.tscn
