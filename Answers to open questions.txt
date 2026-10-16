@@ -1,0 +1,124 @@
+A. Already sitting open in design.md
+
+These are yours, from before I arrived. §15's "still open" list, plus the [OPEN] markers elsewhere in the doc.
+#	Where	Question
+1	§15.1	Does the journal record combos, or only single ingredients?
+2	§15.2	Does Chugs ever forget an ingredient? (doc leans no)
+3	§15.3 / §6.8	Region count and names
+4	§15.4 / §11	Audio: composer or library
+5	§15.5	One-line pitch
+6	§15.6	Bar customization?
+7	§15.7	Named recurring cast size
+8	§15.8	Do transformed patrons produce goods on a timer, or on demand?
+9	§6.4	[OPEN] says tasting reveals which attributes, not magnitude. Code does exact deltas. Doc and code disagree.
+10	§7.2	[OPEN] Does Marrow eat Chugs's patrons? Do they share?
+11	§6.5	[DEFERRED] 5-second real-time scramble on the final turn
+
+1: Journal records combos - should show what the final result will be - Something that we will change, some ingredients will only have one effect rather than a combination. 
+
+2: No
+
+3: Leave this open, I need to write that out based on species I want to appear in the final version
+
+4: Library as much as possible. Free preferred. Music, vocalizations, ambience, etc.
+
+5: "Brewing puzzle game with titillating results"
+
+6: Not yet, but leaning no.
+
+7: Unknown at this time.
+
+8: Timer
+
+9: Let's make it as just the attribute. Magnitudes will be discovered with brewing.
+
+10:  No, she is either there to slow him down or block a door if she is present at the time.
+
+11: Let's leave this out permanently
+
+B. Numbers I invented — keep, change, or scrap
+
+None of these are in the doc. They're all live in code, and all one-liners to change.
+Where	What I picked
+1)Game.MOON_DAYS	Moon is 7 days
+2)Game.STEPS_PER_EXERTION	1 weight burned per 3 steps
+3) Game.steps_per_day()	36 - weight/3, floor 8
+4)Game.BULK_PER_STAGE	20 weight per bulk stage
+5)skip_feast()	−8 attention, 2 weakened days
+6)register_feast_result()	+2 attention, +1 weight per patron eaten
+7)daily_attention_tick()	0–3/day by visible bulk
+8)belly_capacity()	3 + bulk_stage()
+9)Patron.is_willing()	affinity ≥ 3
+10)RegionDB unlock levels	4 and 7
+11)RegionDB strictness	+0.00 / +0.05 / +0.10
+12) TreatFactory spiked chance	0.10 + affinity × 0.05
+
+1) Moon should be 15 days. That should be enough time to change patrons to their extremes and allow players to enjoy the transformations
+
+2) This works. We could scale it to levels, the higher the level the more steps needed to burn weight
+
+3) Adjust this in relation to above answer
+
+The rest feels fine.
+
+C. Real gaps the build exposed
+#	Gap
+1	Chugs has no body beyond weight. §6.9 lists chest, hips, belly, height, muscle as transformable on him — including permanently, from treats. Right now a spiked treat only adds weight. He needs his own Transform.
+2	Marrow isn't in the roster generator. She's a specific character with a specific trigger, but PatronFactory only picks from the generic species pools. How does she turn up?
+3	"Some NPCs forget him, others retain." Affinity is keyed by name and never decays, so everybody remembers. Decay on relocation, or a keep-list?
+4	Level 10's "new recipe family" unlocks a flag nothing reads. There are no recipe families.
+5	Taste tests don't touch belly capacity, so "brews and treats compete for space" is currently treats-versus-treats only.
+6	Saving mid-battle saves the run, not the fight. Loading drops you at the bar.
+7	Enemy loot isn't region-filtered. Wolves drop firm/wild in the fens, where neither is on the shelf.
+8	Journal's "by effect" tab is unlocked from level 1. I offered to gate it and never did.
+9	Does eating leave a mark? The feast copies Patron.transform rather than sharing it, so a body eaten at the moon is unchanged next time.
+
+1) Correct we need to add the same transformations as patrons. We're actually missing another scene which is experimentation on himself. The player can choose to use their inventory and 1 day (cool down is 5 days) to make new combinations and have Chugs try them (art and transformations needed). These won't be permanent but just a way to play with the character and fill in the journal. 
+
+2) Marrow should be a random encounter with a ticker. Whether she shows up should be calculated at the start of a new day. We will need to script in some dialog as she will eventually be an option for a lover (allowing her to stay during the feast phase and become a test subject)
+
+3) Keep-list
+
+4) We need to make these. The ingredient list will need to be expanded with more transformations available 
+
+5) This needs to be fixed, tasting an ingredient should take up belly capacity, a small penalty for not paying attention to the journal
+
+6) Saving shouldn't be mid-battle but on each new day. The player would then be able to start the new day and try to do better (will come in handy with Marrow interactions). If Marrow was calculated to appear in the new day that will be maintained on loading the save.
+
+7) We'll flesh this out with the expanded ingredients
+
+8) Gate this to Level 3
+
+9) Eating a patron resets their body to it's initial state. Chugs gains weight.
+
+D. Art-blocking specifically
+
+This is the short list, and it's the one that matters right now.
+#	Question
+1	Is there a reference concept image? §10 says "matching the reference concept" — if it exists, it needs to be the style lock before anything is generated.
+2	Which characters get art first? Chugs is the only one guaranteed on screen. Wolves and bandits are the two enemy types; the three bandit species variants are currently one art set.
+3	Are the anchor stages right? I picked [0, 2, 4, 5]. Anchors at the top of the ladder cost more than they buy, since stages 4 and 5 are adjacent. [0, 2, 4] is probably better.
+4	How many overlay axes for the slice, really? One (belly) is what the code does. If Chugs is going to visibly change in chest/hips from treats, that's axes 2–4 and roughly 18 more sprites.
+5	Does Chugs need a face? §4 says the skull can't emote, so expressions are posture. That's a big constraint to confirm before an artist starts.
+6	The relocation scene is the marketing image. Does it get priority over gameplay sprites?
+7	NSFW variants: when? §13 says the slice is PG-13. The manifest reserves the slot; confirming it stays empty for now saves roughly half the art.
+8	Portraits, UI art, item icons, tiles, belly audio — in or out of the first art pass?
+
+1) Reference images are going to be provided soon - Will include Chugs, Marrow, female and male variants of each species
+2) These will all be done at similar times - I would prefer to have the majority of the art done before implementing it
+3) I agree, 0,2,4 is probably the best
+4) I will make a new document with each transformation and the stages there-of. The art will be the longest process.
+5) His face doesn't really emote, but we'll fudge the eyes so he has eye lids, his ears and mouth will help convey emotion. Similar with Marrow.
+6) No, sprites, portraits and other art take priority
+7) All art SFW and NSFW will be made at the same time. NSFW may be done first as we are layering transformations on top. Clothing will be the same.
+8) UI, Portraits, Sprites (overworld and feast), items and tiles will be part of the first pass. Audio will need to wait.
+
+E. One thing worth deciding before art: the slice has drifted
+
+§13 defines the vertical slice as "3 customers, 1 zone, 2 enemy types, 1 transformation axis, 1 taste test, 1 feast." What's built is 4–5 customers, 3 regions, 2 enemy types, 1 axis. So there's more world than slice.
+
+That's not necessarily wrong — but "if the week isn't fun, the year won't" only works if the week is still the target. Worth a deliberate call: retarget §13 to match what exists, or trim back to the slice before spending art on three regions.
+
+Answer: I'm not worried. It's allowed us to test features. For the art we'll go about it by type.
+
+

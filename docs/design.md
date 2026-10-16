@@ -36,14 +36,29 @@ set-piece. Relationship layer. Dark comedy.
 ## 3. CONTENT RATING
 - Base: **PG-13**. Toggle unlocks **full NSFW**. No ceiling.
 - **The toggle gates dialogue AND visuals.**
-  - PG-13: clothes stay on.
-  - NSFW: clothes tear at brew 3 where the transformation would tear them.
+  - PG-13: clothing **stretches**. It does not come off.
+  - NSFW: clothing **tears** where the body outgrows it.
 - Toggle is live-swappable mid-save. Effects exist in both modes; only
   presentation changes.
 - **In:** TG / sex change, MPreg, futa, herm, hyper, lactation,
   oviposition, weight gain, inflation, feederism, belly audio, soft vore.
 - **Out:** hard vore, scat, digestion detail.
 
+**Clothing is a layer, and it is state.** Draw order is
+**nude base → transformation layers → clothing layers.** Each garment is
+a separate layer with three states:
+
+| State | Trigger | Mode |
+|---|---|---|
+| intact | body fits the garment | both |
+| stretched | body has outgrown it | PG-13 |
+| torn | body has outgrown it | NSFW |
+
+Stretched and torn are the same trigger; only the mode differs. A
+garment returns to intact **only when the body under it resets** — which
+in practice means being eaten at the feast. A torn shirt is evidence.
+
+Garment slots for the slice: **shirt, pants.**
 ---
 
 ## 4. PROTAGONIST — CHUGS
@@ -51,8 +66,12 @@ set-piece. Relationship layer. Dark comedy.
 - Face is a bare canid skull — hollow sockets, fixed grin of sharp teeth.
 - **Aware** of what he is, privately worried about discovery — of his
   trigger and of his power. Underplays everything on the surface.
-- The skull cannot emote. He acts through posture, hands, tail, and
-  increasingly his gut. Design body language first, faces never.
+- The skull does not emote the way a face does. He acts through posture,
+  hands, tail, and increasingly his gut. **Body language first.**
+- [OPEN — pending reference] The skull reads through eyelids, ears and a
+  working mouth: enough expression to carry a line, not enough to make
+  him an ordinary face. Marrow is built the same way. Supersedes the
+  earlier "faces never."
 - Warm, wry, unbothered. Runs a genuinely good bar. Eats people.
 
 ## 5. LORE — SKULL-DOGS & THE WECHUGE
@@ -97,15 +116,30 @@ patron is an account you either keep or cash out.
 - Brewing occupies a vat and a chunk of the day.
 - Vat holds 3 ingredients (4 at level 4).
 
-### 6.4 Taste Test
-- Unlocked by a **level-up** or by **discovering a new ingredient**.
-- Costs **one full day** — the foraging day. That is the price.
-- Chugs drinks the test brews; their effects are revealed.
-- **Chugs reverts to his exact state at the start of the test**,
-  including any weight gained. No risk to him.
-- Patron-applied effects are NOT covered and remain permanent.
-- [OPEN] Reveals *which* attributes change, not the *magnitude*.
-- At level 5, a second taste test per day.
+### 6.4 The Experimentation Day
+Tasting is gone. The experimentation day replaces it.
+
+- **Offered at the start of any new day.** Taking it consumes the
+  **foraging portion** of that day.
+- Searches are **banked**, not lost, so the pantry can be replenished on
+  the next forage day. No cap for now — see how it breaks.
+- **No timer, no turn limit, no belly cost.** Brew, apply, watch, repeat,
+  for as long as the player likes.
+- **Reset potion is infinite and free inside the scene.** It returns
+  Chugs to base form **and reduces his weight**. This is the only place
+  it is used.
+- **Ending:** take a last reset, or walk into service transformed.
+  Anything that survives to service **persists**.
+- **Cooldown: 7 days.** One experimentation day a week.
+- Experimentation **reveals everything** about an ingredient: direction,
+  body part, and magnitude. §6.15.
+- Experimentation changes **do** affect combat stats while they last.
+  Belly Slam, resistance and speed all read from his body.
+- Applies to Chugs only. Effects on patrons are separate and are not
+  cleared by the potion.
+
+**Design note:** the cost is the day, and the cost of *not* resetting is
+walking into a room full of people who can see. Both halves matter.
 
 ### 6.5 The Feast — turn-based escape puzzle
 - **Format: planning → commit → simultaneous resolution.**
@@ -116,7 +150,18 @@ patron is an account you either keep or cash out.
 - **Turn limit: the night.** 12 turns baseline.
 - **Lose condition: all fleeing patrons escape.** Night advances, Chugs
   is hungry and weaker. Not a game over — a bad month.
-- Willing patrons do not run. They are the floor.
+
+**Who is present.** Only the patrons who were in the bar that day. The
+feast is the night's customers, still on the premises. §6.18
+
+**Freeze roll.** There is no "willing" category. Every patron present
+rolls once, at the start of the feast:
+freeze_chance = 0.45 - stage * 0.07 # 45% at stage 0, 10% at stage 5
+
+A frozen patron does not run. An **immobilised** patron (stage 5) cannot
+run at all, roll or no roll. A low-transformation room can therefore walk
+out en masse — and those patrons **persist into the next moon**, carrying
+their bodies, until something eats them or the region is abandoned.
 
 **Three ways transformation pays off:**
 1. **Slow them.** Speed 3 → 1 across transformation tiers.
@@ -128,10 +173,11 @@ patron is an account you either keep or cash out.
 **Other rules:**
 - Chugs's **weight reduces his action points** (6 → 2 at maximum).
 - Escaped patrons lose the night and blame the drink. No attention cost.
-- Eaten patrons: **body resets. Affinity and kinks persist.**
-- Willing patrons stack themselves toward immobility to be eaten first.
-- **Marrow** does not hunt. If lovers and present, she slows Chugs via
-  enticement, costing action points to pass.
+- Eaten patrons: **body resets.** Affinity and kinks persist. Their
+  **clothing returns** — the only thing that un-tears a garment. §3
+- **Marrow** does not hunt. If present she slows Chugs via enticement,
+  costing action points to pass. Once a lover she attends **every** feast;
+  before then, only if she was in the bar that day. §7.2
 - [DEFERRED] Optional 5-second real-time scramble on the final turn.
 
 ### 6.6 Attention
@@ -147,26 +193,40 @@ patron is an account you either keep or cash out.
 - The bar **walks**. Baba Yaga's-hut style — a cozy tavern that stands
   up on four furry clawed legs and strides to a new region.
 - Relocation is a **scene**, not a menu. **This is the marketing image.**
-- Triggered by max attention, or by a player-initiated move once per
-  in-game month if a region is unlocked.
+- Triggered by max attention, or by a player-initiated move once per moon
+  if a region is unlocked.
 - Moving unlocks new ingredients and stronger brew combinations.
-- Returning to a previous region: some NPCs forget him, others retain
-  unlocked kinks and feederism toward him.
-
+- **Relocation abandons the region's cast.** All eight characters stay
+  where they are, frozen mid-transformation. Regulars keep their affinity
+  and will be waiting if the player returns; randoms forget him. Nothing
+  about a region's bodies follows the bar. §6.18
+  
 ### 6.8 Regions
 - Each species has a **home region**.
 - Structure: **campaign spine + sandbox.** You can stay, but
   progression eventually demands moving.
-- [OPEN] Region count and names.
+- **Three regions: the near downs, the fens, the high downs.** Each has
+  its own eight-character cast and its own tag palette. §6.18
+- Unlocked by level: 4 and 7.
 
 ### 6.9 Transformation
 - Attributes: chest, hips, belly, height, muscle, weight, hair, skin,
   voice, genitals, sex, plus species flavor (tail, scales, horns).
 - Deltas stack. Opposing effects interact rather than cancel.
 - On patrons: permanent until the feast resets the body.
-- On Chugs, from patron treats: **permanent** until reversed by a
-  specific item or action.
-- On Chugs, from taste tests: temporary.
+- On Chugs, from spiked treats: **persists until a reset potion.**
+- On Chugs, from experimentation: **persists until a reset potion**, and
+  survives into service if he does not take one. §6.4
+- **The reset potion** returns him to base form and reduces his weight.
+  Only available during an experimentation day.
+
+**Chugs has a full body.** He is not only a weight scalar. `weight` keeps
+its own mechanics (steps, attention, belly capacity); every other
+attribute lives on his Transform, and that Transform is what the potion
+clears.
+
+**Garments are per-slot state**, torn by the axis beneath them and
+restored only by being eaten. §3
 
 **Stages.** Raw points bucket into six stages (0-5). One full vat is
 about one stage, which is what makes §6.3's three-brew escalation fall
@@ -187,7 +247,8 @@ additive, and cost overlays rather than new bodies.
 - Fat = resilience through **damage resistance and heavier attacks,
   not a larger HP pool.** A fixed pool plus rising resistance avoids
   double-dipping; a tank build is legitimate and slow.
-- Three costly outs: exertion, slimming brews, refusing treats.
+- Four costly outs: exertion, slimming brews, refusing treats, and the
+  **reset potion** — which also strips every other attribute he carries.
 - **Belly capacity is a resource.** Brews and treats compete for space.
 - Concealment: loose clothing masks one stage. Level 7 masks two.
 - One rare overworld item resets a stage — the spiral's escape valve.
@@ -230,13 +291,27 @@ Two simultaneous constraints read as arithmetic, not decision-making.
 - A persistent, diegetic notebook. Chugs's own knowledge.
 - **Survives closing time, relocation, and save/reload.** The one thing
   that carries when the bar walks.
-- Two views: **by ingredient** (effect of each) and **by effect**
-  (reverse lookup — what raises and lowers each attribute).
-- Unknown entries marked. Roughly two-thirds blank on a fresh save.
-- Discovery: **serving** (free, incidental) or **tasting** (targeted,
-  costs one unit, serves nobody).
-- Exact deltas, not qualitative — counter-planning needs precision.
+- Three views: **by ingredient**, **by combination**, and **by effect**
+  (reverse lookup — what raises and lowers each attribute). The by-effect
+  view unlocks at level 3.
+- **Lists the whole population**, not just tonight's arrivals. Memory
+  training: the player learns who wants what.
 - Per-save, so a fresh save means fresh discovery.
+
+**Two-tier knowledge.** The journal knows in stages, and shows which:
+
+| Tier | Learned by | Shown |
+|---|---|---|
+| blank | holding the ingredient | the name, nothing else |
+| direction | serving it to a patron | which attributes move, which way |
+| full | the experimentation day | exact magnitudes |
+
+A blank entry is unplannable. Serving teaches the shape of an ingredient
+at the cost of a real customer. Only experimentation teaches numbers. §6.4
+
+**Combinations.** Discovered pairings are recorded, not just singles, so
+a good recipe survives as a remembered pairing. Two-thirds blank on a
+fresh save.
 
 **Design note:** a complete journal does not trivialise brewing, because
 it splits knowledge from availability. The journal says what you need;
@@ -253,7 +328,7 @@ scarcity decides whether you can get it.
 |---|---|
 | 1 → 3 | +1 search / +1 yield, alternating |
 | 4 | 4th vat slot |
-| 5 | Second taste test per day |
+| 5 | +1 belly capacity |
 | 6 | +1 search |
 | 7 | Hide one extra weight stage |
 | 8 | +1 yield |
@@ -303,6 +378,41 @@ themselves is the joke, and it is why the axis is worth having at all.
 
 Bespoke dialogue and animation per reaction are a later pass. The
 system ships grey-box, with the reaction named in the battle log.
+
+### 6.18 Patrons as a population
+The bar has a **standing cast**, not a nightly random draw.
+
+- **Eight characters per region:** four **regulars** (hand-authored) and
+  four **randoms** (procedural).
+- **Four or five appear on a given night**, drawn from all eight.
+- **They persist.** Transformation, affinity and garments stick to the
+  character, across days and across moons.
+- **Regulars carry affinity across relocation. Randoms do not.**
+- **Nobody follows the player.** Relocation leaves the cast behind,
+  frozen mid-transformation; the new region has its own eight. Return and
+  they are as you left them. §6.7
+- **Acquisition is what puts an ingredient in the journal**, blank. §6.15
+- **Goods:** a transformed patron produces something, per patron, tied to
+  what was done to them. Lean towards regulars only.
+
+**Why a cast and not a draw.** §6.3's three-brew escalation needs the
+same body coming back, and a 15-day moon needs somewhere for the
+escalation to go. A nightly draw makes both impossible.
+
+### 6.19 Procedural dialogue [PLANNED]
+Regulars and Marrow comment on Chugs's appearance when he reaches service
+unreset. Authored by template rather than by hand.
+
+- A line is **opener + observation + reaction**.
+- The observation is keyed by (axis, direction, stage band), so a stage-2
+  belly and a stage-5 belly read differently.
+- Each character has a `voice` profile: register, blunt or shy, verbal
+  tic. The assembler picks a variant that fits the voice.
+- A per-save used-line list prevents repeats; never reuse the last N.
+
+Not built. Recorded because it is a content system, and it wants the same
+data the journal and the art manifest already use.
+
 ---
 
 ## 7. NPCS
@@ -333,7 +443,12 @@ species in the fandom, so Chugs's silhouette is the safest possible lead.
 - **Does not participate in the hunt.** If lovers and present, she
   distracts Chugs instead.
 - She is the only one who gets to interrupt the monster's dinner.
-- [OPEN] Does she eat Chugs's patrons? Do they share?
+- Does not eat his patrons. She slows him, or blocks a door, and that is
+  the whole of her interference.
+- **Appearance:** a flat daily chance, reset on the full moon. Once she is
+  a lover she attends every feast and may not even order — presence
+  without being a customer.
+- **Becomes a lover**, then a test subject: someone he can brew on.
 
 ### 7.3 Request archetypes
 Four kinds. Each signals its own rules on the patron card.
@@ -400,7 +515,8 @@ matters.
 - Full moon: single held drone; low wet chime on each swallow; door
   creak on each escape.
 - Belly audio: yes.
-- [OPEN] Composer or library.
+- **Library-first, free where possible.** Music, vocalisations, ambience.
+- Waits for the second art pass.
 
 ## 12. TECH
 - **Godot 4.** Free, 2D-first, strong 2D pipeline, easy Windows/Linux
@@ -411,20 +527,14 @@ matters.
 - Repo: public GitHub, `docs/design.md` is this file.
 
 ## 13. SCOPE — VERTICAL SLICE
-One lunar week, 3 customers, 1 zone, 2 enemy types, 1 transformation
-axis, 1 taste test, 1 feast, PG-13 only.
-**If the week isn't fun, the year won't be.**
+**One lunar fortnight (15 days), 3 regions, 2 enemy types, 1
+transformation axis, 1 experimentation day, 1 feast.** NSFW art deferred
+but reserved. The slice outgrew its first draft; this is the live target.
 
-**Build order:**
-1. Project skeleton, autoloads, save system
-2. Feast scene (riskiest system, grey-box in engine)
-3. Brew → serve → satisfaction
-4. Foraging and scarcity
-5. Journal
-6. Levels and XP
-7. Overworld and combat
-8. Attention, weight, treats
-9. Art
+**If the fortnight isn't fun, the year won't.**
+
+**Build order:** as per `docs/MOONSWILL HANDOFF.md` §3, which is the
+authoritative progress list.
 
 ## 14. PROTOTYPES (all playable, all grey-boxed)
 | File | Proves |
@@ -439,26 +549,30 @@ Keep these. They are the proof of what works.
 ## 15. OPEN QUESTIONS
 
 ### Resolved 2026-10-15 — combat scope
-| # | Question | Answer |
-|---|---|---|
-| 1 | Do enemy transformations persist between encounters? | No. Reset at the next encounter, win or lose. |
-| 2 | Does a transformed enemy drop different loot? | No. Same loot. |
-| 3 | Can an encounter be resolved by transformation alone? | Yes, if the player has the stock. Otherwise they fight. |
-| 4 | Where do enemies get brews? | Rolled into their inventory at battle start. |
-| 5 | Does drinking consume belly capacity? | No. Only Chugs's weight, and exertion loss, persists. |
-| 6 | Does Chugs's weight do anything in combat? | Raises Belly Slam damage and its AP cost. |
-| 7 | Does the NSFW toggle apply to enemies? | Yes. Battles are paced to allow experimentation. |
-| 8 | Which axis is the slice's single axis? | Bulk. More axes are additive later. |
+1-8 as previously recorded.
+
+### Resolved 2026-10-15 — population and body
+| Question | Answer |
+|---|---|
+| Do patrons persist? | Yes, per region, across days and moons. |
+| Do they follow the player? | No. Relocation abandons the cast. |
+| Regulars vs randoms | 4 authored / 4 procedural per region. Regulars keep affinity across moves. |
+| Willing patrons? | Cut. Replaced by a stage-scaled freeze roll. |
+| Journal discovery trigger | Acquisition (blank), serving (direction), experimentation (full). |
+| Experimentation cooldown | 7 days. Searches banked, no cap. |
+| Level 5 reward | +1 belly capacity. |
+| Save scope | Full restore. A mid-battle save restores the tile. |
 
 ### Still open
-1. Does the journal record **combos**, or only single ingredients?
-2. Does Chugs ever *forget* an ingredient? (Lean: no.)
-3. Region count and names.
-4. Audio: composer or library.
-5. One-line pitch.
-6. Bar customization?
-7. Named recurring cast size?
-8. Do transformed patrons produce goods on a timer or on demand?
+1. Does Chugs ever *forget* an ingredient? (Lean: no.)
+2. One-line pitch — "a brewing puzzle game with titillating results"
+   (confirm wording).
+3. Bar customization?
+4. Named recurring cast size — now 24 across three regions.
+5. Do transformed patrons produce goods on a timer, or on demand?
+6. Reset potion: how much weight does it take off?
+7. §4 face — pending reference image.
+8. Recipe families (level 10) — needs a definition.
 
 ## 16. DECISION LOG
 | Date | Decision | Why |
@@ -505,6 +619,23 @@ Keep these. They are the proof of what works.
 | 10-15 | Combat is a sandbox, not a wall | The game is brewing; fights feed it |
 | 10-15 | Slice axis is bulk, one only | Only axis with combat meaning, shared with enemies |
 | 10-15 | Reactions ship grey-box, dialogue later | Art and VO are a later pass |
+| 10-15 | Patrons persist per region | Escalation needs a returning body |
+| 10-15 | Relocation abandons the cast | Leaving should cost something |
+| 10-15 | Regulars authored, randoms procedural | Regulars must be memorable |
+| 10-15 | Willing cut for a stage-scaled freeze roll | Surprise over a stat |
+| 10-15 | Tasting replaced by the experimentation day | Watching beats reading |
+| 10-15 | Journal is two-tier | Precision has to be earned |
+| 10-15 | Acquisition blanks a journal entry | Discovery is holding it |
+| 10-15 | Reset potion strips attributes and weight | One clean out |
+| 10-15 | Clothing is a layer; PG-13 stretches, NSFW tears | Same trigger, two presentations |
+| 10-15 | Clothing resets only on being eaten | A torn shirt is evidence |
+| 10-15 | Experimentation cooldown 7 days | Otherwise the day is free |
+| 10-15 | Searches bank on an experimentation day | Replenish rather than lose |
+| 10-15 | Level 5 grants belly capacity | The resource that gates the fun |
+| 10-15 | 15-day moon | Time to reach extremes |
+| 10-15 | Save is full-restore | Load where you left off |
+| 10-15 | Audio library-first, pass two | Free, and not blocking |
+
 
 ## 17. APPENDIX — KINK → MECHANIC MAP
 | Concept | System |
