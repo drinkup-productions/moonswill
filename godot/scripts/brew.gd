@@ -1,5 +1,5 @@
 extends Control
-## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.5, §6.15, §6.16, §7.3
+## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.5, §6.11, §6.15, §6.16, §7.3
 
 const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
 const FEAST_SCENE := "res://scenes/feast/feast.tscn"
@@ -20,6 +20,8 @@ var species_lbl: Label
 var badge_lbl: Label
 var request_lbl: Label
 var note_lbl: Label
+var treat_lbl: Label
+var treat_row: HBoxContainer
 var shelf_grid: GridContainer
 var vat_box: HBoxContainer
 var result_lbl: RichTextLabel
@@ -94,14 +96,45 @@ func _next_patron() -> void:
 	badge_lbl.text = PatronRequest.LABEL[req.kind]
 	request_lbl.text = req.line
 	note_lbl.text = req.note
+	_show_treat()
 	_refresh_shelf()
 	_refresh_vat()
 	_refresh_status()
 
 
+## They arrive with something. Accept fattens and endears; decline costs. §6.11
+func _show_treat() -> void:
+	_clear(treat_row)
+	treat_lbl.text = ""
+	if current == null or current.treat.is_empty():
+		return
+	treat_lbl.text = TreatFactory.line(current.name, current.treat)
+
+	var accept := Button.new()
+	accept.text = "Accept"
+	accept.disabled = not Game.can_accept()
+	accept.pressed.connect(func() -> void:
+		result_lbl.text = Game.accept_treat(current)
+		_clear(treat_row)
+		_refresh_status()
+	)
+	treat_row.add_child(accept)
+
+	var decline := Button.new()
+	decline.text = "Decline"
+	decline.disabled = not Game.can_decline()
+	decline.pressed.connect(func() -> void:
+		result_lbl.text = Game.decline_treat(current)
+		_clear(treat_row)
+		_refresh_status()
+	)
+	treat_row.add_child(decline)
+
+
 func _refresh_status() -> void:
-	status_lbl.text = "Day %d (moon %d/%d) — Patron %d of %d     total satisfaction: %d" % [
-		Game.day, Game.moon_day, Game.MOON_DAYS, served + 1, served + queue.size(), total
+	status_lbl.text = "Day %d (moon %d/%d) — Patron %d of %d     belly %d/%d     total satisfaction: %d" % [
+		Game.day, Game.moon_day, Game.MOON_DAYS, served + 1, served + queue.size(),
+		Game.belly_used, Game.belly_capacity(), total
 	]
 	level_lbl.text = Levels.progress_text()
 
@@ -175,7 +208,6 @@ func _brew() -> void:
 		Journal.learn_ingredient(id, ing.tags)
 		Game.take_item(id, 1)
 
-	# The dose sticks. It is what makes them catchable at the moon. §6.5
 	current.transform.apply(res)
 
 	var wanted := "NO TARGET — bold and focused" if req.is_wildcard() else Attributes.pretty(req.want)
@@ -208,6 +240,8 @@ func _end_night() -> void:
 	badge_lbl.text = ""
 	name_lbl.text = ""
 	species_lbl.text = ""
+	_clear(treat_row)
+	treat_lbl.text = ""
 	_clear(shelf_grid)
 	_clear(vat_box)
 	_refresh_status()
@@ -275,6 +309,9 @@ func _build_ui() -> void:
 	badge_lbl = _label(top, "")
 	request_lbl = _label(card_col, "")
 	note_lbl = _label(card_col, "")
+	treat_lbl = _label(card_col, "")
+	treat_row = HBoxContainer.new()
+	card_col.add_child(treat_row)
 
 	_label(col, "Shelf")
 	shelf_grid = GridContainer.new()

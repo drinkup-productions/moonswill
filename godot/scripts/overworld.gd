@@ -19,7 +19,21 @@ var busy := false
 
 var status: Label
 var hint: Label
+var save_ui: SaveUI
 
+
+func _ensure_save() -> void:
+	if save_ui == null:
+		save_ui = SaveUI.new()
+		add_child(save_ui)
+
+
+func _toggle_save() -> void:
+	_ensure_save()
+	if save_ui.is_open():
+		save_ui.close()
+	else:
+		save_ui.open()
 
 func _ready() -> void:
 	rng.randomize()
@@ -73,6 +87,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		dir = Vector2i.RIGHT
 	if dir != Vector2i.ZERO:
 		_step(dir)
+	if save_ui != null and save_ui.is_open():
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_S:
+			_toggle_save()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_Q:
+			_search_here()
+			return
 
 
 func _step(p_dir: Vector2i) -> void:
@@ -158,6 +182,11 @@ func _build_hud() -> void:
 	legend.position = Vector2(700, 76)
 	layer.add_child(legend)
 	legend.text = "amber: the bar · pale: a spot · dark green: trees · blue: water\nwalking burns weight, and is where fights happen"
+	var save_btn := Button.new()
+	save_btn.text = "save / load  (S)"
+	save_btn.position = Vector2(1040, 12)
+	save_btn.pressed.connect(_toggle_save)
+	layer.add_child(save_btn)
 
 
 func _tile_color(p_t: String) -> Color:

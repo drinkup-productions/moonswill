@@ -13,11 +13,11 @@ enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
 const WELLWATER_STOCK := 99
-const AUTOSAVE_SLOT := 1
+#const AUTOSAVE_SLOT := 1
 const STEPS_PER_EXERTION := 3
 const MOON_DAYS := 7            # §13: the slice is one lunar week
 const BULK_PER_STAGE := 20      # weight points per visible bulk stage
-
+const AUTOSAVE_SLOT := 0        # 0 is the autosave; 1-3 are manual
 const REGIONS := ["home", "the downs", "the fens"]
 
 var day: int = 1
@@ -42,6 +42,9 @@ var overworld_cell: Vector2i = Vector2i(-1, -1)
 var weakened_days: int = 0
 var feasted_this_moon: bool = false
 
+var affinity: Dictionary = {}           # patron name -> int, persists across days
+var belly_used: int = 0
+
 
 func start_day() -> void:
 	roster = PatronFactory.build_night(day, patron_count())
@@ -57,6 +60,7 @@ func start_day() -> void:
 	top_up_wellwater()
 	roster_ready.emit(roster)
 	set_phase(Phase.FORAGE)
+	belly_used = 0
 
 
 func patron_count() -> int:
@@ -208,7 +212,46 @@ func add_attention(n: int) -> void:
 	attention_changed.emit(attention)
 	if attention >= ATTENTION_MAX:
 		relocate()
+## A bigger belly holds more, but also draws more eyes. §6.10
+func belly_capacity() -> int:
+	return 3 + bulk_stage()
 
+
+func can_accept() -> bool:
+	return belly_used < belly_capacity() or is_weakened()
+
+
+## Too hungry to say no. The price of a skipped feeding. §6.6
+func can_decline() -> bool:
+	return not is_weakened()
+
+
+func accept_treat(p_patron: Patron) -> String:
+	var t: Dictionary = p_patron.treat
+	if t.is_empty():
+		return ""
+	add_weight(int(t["weight"]))
+	belly_used += 1
+	raise_affinity(p_patron.name, 1)
+	p_patron.affinity = int(affinity.get(p_patron.name, 0))
+	var msg := "Ate %s. +%d weight. Affinity up." % [t["dish"], int(t["weight"])]
+	if bool(t.get("spiked", false)):
+		var ing: Ingredient = IngredientDB.get_ingredient(str(t["brew"]))
+		if ing != null:
+			msg += "   Spiked with %s." % ing.display_name
+	return msg
+
+
+func decline_treat(p_patron: Patron) -> String:
+	if p_patron.treat.is_empty():
+		return ""
+	raise_affinity(p_patron.name, -1)
+	p_patron.affinity = int(affinity.get(p_patron.name, 0))
+	return "Declined %s. Affinity down." % p_patron.treat["dish"]
+
+
+func raise_affinity(p_name: String, p_delta: int) -> void:
+	affinity[p_name] = clampi(int(affinity.get(p_name, 0)) + p_delta, 0, 10)
 
 ## No death, no banishment, ever. The bar simply walks. §6.7
 func relocate() -> void:
@@ -263,3 +306,5 @@ func reset_run() -> void:
 	Journal.reset()
 	Journal.seed_starter()
 	start_day()
+	affinity.clear()
+	belly_used = 0

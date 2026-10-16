@@ -13,7 +13,21 @@ var pantry_lbl: RichTextLabel
 var hint_lbl: Label
 var open_btn: Button
 var journal_ui: JournalUI
+var save_ui: SaveUI
 
+
+func _ensure_save() -> void:
+	if save_ui == null:
+		save_ui = SaveUI.new()
+		add_child(save_ui)
+
+
+func _toggle_save() -> void:
+	_ensure_save()
+	if save_ui.is_open():
+		save_ui.close()
+	else:
+		save_ui.open()
 
 func _ready() -> void:
 	if Game.forage == null:
@@ -98,12 +112,15 @@ func _on_wander() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
-		if journal_ui != null and journal_ui.is_open():
+		if (journal_ui != null and journal_ui.is_open()) \
+				or (save_ui != null and save_ui.is_open()):
 			return
 		if event.keycode == KEY_J:
 			_toggle_journal()
 			get_viewport().set_input_as_handled()
-
+		elif event.keycode == KEY_S:
+			_toggle_save()
+			get_viewport().set_input_as_handled()
 
 func _refresh() -> void:
 	status_lbl.text = "Day %d (moon %d/%d)  ·  %s     searches %d / %d     taste %d     weight %d (stage %d, seen %d)     attention %d" % [
@@ -208,6 +225,10 @@ func _build_ui() -> void:
 	col.add_child(head)
 	status_lbl = _label(head, "")
 	level_lbl = _label(head, "")
+	var save_btn := Button.new()
+	save_btn.text = "save / load  (S)"
+	save_btn.pressed.connect(_toggle_save)
+	head.add_child(save_btn)
 	var j_btn := Button.new()
 	j_btn.text = "journal  (J)"
 	j_btn.pressed.connect(_toggle_journal)

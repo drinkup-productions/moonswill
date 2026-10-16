@@ -1,13 +1,14 @@
 class_name Patron
 extends RefCounted
 ## One customer. Data only — rosters are built by PatronFactory.
-## Design ref: docs/design.md §7.1, §7.3
+## Design ref: docs/design.md §7.1, §7.3, §6.11
 
 var name: String = ""
 var species: String = ""
 var req: PatronRequest = null
 var affinity: int = 0
 var transform: Transform          # what service has done to them so far
+var treat: Dictionary = {}        # what they brought, if anything
 var willing: bool = false
 
 

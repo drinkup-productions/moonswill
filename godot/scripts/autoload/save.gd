@@ -1,9 +1,10 @@
 extends Node
 ## Multi-slot save/load. JSON in user://saves/. Autoloaded as `Save`.
+## Slot 0 is the autosave; slots 1-3 are manual. §6.13
 
 const SAVE_DIR := "user://saves"
 const SLOT_COUNT := 3
-const VERSION := 1
+const VERSION := 2
 
 signal saved(slot: int)
 signal loaded(slot: int)
@@ -21,14 +22,33 @@ func has_save(slot: int) -> bool:
 	return FileAccess.file_exists(_path(slot))
 
 
+## Header info for the slot list, without applying anything.
+func slot_info(slot: int) -> Dictionary:
+	if not has_save(slot):
+		return {}
+	var f := FileAccess.open(_path(slot), FileAccess.READ)
+	if f == null:
+		return {}
+	var data = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	return data
+
+
 func save_game(slot: int) -> bool:
 	var data := {
 		"version": VERSION,
 		"day": Game.day,
+		"moon_day": Game.moon_day,
 		"region": Game.region,
 		"weight": Game.weight,
 		"attention": Game.attention,
 		"inventory": Game.inventory,
+		"affinity": Game.affinity,
+		"belly_used": Game.belly_used,
+		"weakened_days": Game.weakened_days,
+		"feasted_this_moon": Game.feasted_this_moon,
 		"level": Levels.level,
 		"xp": Levels.xp,
 		"journal": Journal.serialize(),
@@ -44,24 +64,33 @@ func save_game(slot: int) -> bool:
 
 
 func load_game(slot: int) -> bool:
-	if not has_save(slot):
-		return false
-	var f := FileAccess.open(_path(slot), FileAccess.READ)
-	var data = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("Corrupt save in slot %d" % slot)
+	var data := slot_info(slot)
+	if data.is_empty():
 		return false
 
 	Game.day = int(data.get("day", 1))
+	Game.moon_day = int(data.get("moon_day", 1))
 	Game.region = str(data.get("region", "home"))
 	Game.weight = int(data.get("weight", 0))
 	Game.attention = int(data.get("attention", 0))
 	Game.inventory = data.get("inventory", {})
+	Game.affinity = data.get("affinity", {})
+	Game.belly_used = int(data.get("belly_used", 0))
+	Game.weakened_days = int(data.get("weakened_days", 0))
+	Game.feasted_this_moon = bool(data.get("feasted_this_moon", false))
 	Levels.level = int(data.get("level", 1))
 	Levels.xp = int(data.get("xp", 0))
 	Journal.deserialize(data.get("journal", {}))
 	loaded.emit(slot)
+	return true
+
+
+## Loading does not restore a mid-day position, so rebuild the day. Movement
+## and searches reset; everything durable carries.
+func load_and_resume(slot: int) -> bool:
+	if not load_game(slot):
+		return false
+	Game.start_day()
 	return true
 
 

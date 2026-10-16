@@ -72,14 +72,14 @@ static func build_night(p_day: int, p_count: int) -> Array:
 	var out: Array = []
 	var keys: Array = SPECIES.keys()
 	var used := {}
-	var pt := Patron.make(nm, sp, _make_request(rng, sp))
-		if rng.randf() < 0.25:
-			pt.affinity = 3          # a regular — willing at the feast
-		out.append(pt)
 	for _i in p_count:
 		var sp: String = keys[rng.randi_range(0, keys.size() - 1)]
 		var nm := _pick_name(rng, sp, used)
-		out.append(Patron.make(nm, sp, _make_request(rng, sp)))
+		var pt := Patron.make(nm, sp, _make_request(rng, sp))
+		# Affinity persists by name, so a regular stays a regular. §6.11
+		pt.affinity = int(Game.affinity.get(nm, 0))
+		pt.treat = TreatFactory.roll(sp, pt.affinity, rng)
+		out.append(pt)
 	return out
 
 
