@@ -1,7 +1,6 @@
 extends Control
-## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.15, §7.3
+## Grey-box brew & serve. Design ref: docs/design.md §6.3, §6.15, §6.16, §7.3
 
-const MAX_SELECT := 3
 const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
 
 var queue: Array = []
@@ -11,8 +10,10 @@ var served := 0
 var total := 0
 var locked := false
 var journal_ui: JournalUI
+var level_up_ui: LevelUpUI
 
 var status_lbl: Label
+var level_lbl: Label
 var name_lbl: Label
 var species_lbl: Label
 var badge_lbl: Label
@@ -55,6 +56,13 @@ func _toggle_journal() -> void:
 		journal_ui.open()
 
 
+func _show_level_up(reached: Array) -> void:
+	if level_up_ui == null:
+		level_up_ui = LevelUpUI.new()
+		add_child(level_up_ui)
+	level_up_ui.open(reached)
+
+
 func _start_night() -> void:
 	# Fallback stock, only when opening brew.tscn directly with F6.
 	if Game.inventory.is_empty():
@@ -94,6 +102,7 @@ func _refresh_status() -> void:
 	status_lbl.text = "Day %d — Patron %d of %d     total satisfaction: %d" % [
 		Game.day, served + 1, served + queue.size(), total
 	]
+	level_lbl.text = Levels.progress_text()
 
 
 func _selected_count(id: String) -> int:
@@ -123,7 +132,7 @@ func _refresh_shelf() -> void:
 
 
 func _on_pick(id: String) -> void:
-	if locked or selected.size() >= MAX_SELECT:
+	if locked or selected.size() >= Levels.vat_slots():
 		return
 	if _selected_count(id) >= Game.inventory.get(id, 0):
 		return
@@ -135,7 +144,7 @@ func _on_pick(id: String) -> void:
 func _refresh_vat() -> void:
 	_clear(vat_box)
 	if selected.is_empty():
-		_label(vat_box, "empty — up to %d" % MAX_SELECT)
+		_label(vat_box, "empty — up to %d" % Levels.vat_slots())
 		return
 	for i in selected.size():
 		var b := Button.new()
@@ -184,14 +193,13 @@ func _brew() -> void:
 
 func _end_night() -> void:
 	var avg := int(round(float(total) / maxi(1, served)))
-	var ups := Levels.award(total)
-	var msg := "Closing time. Average satisfaction: %d\n+%d xp" % [avg, maxi(Levels.XP_FLOOR, total)]
-	if ups > 0:
-		msg += "\nLevel %d reached — %d searches, %d per search." % [
-			Levels.level, Levels.searches(), Levels.yield_per_search()
-		]
+	var paid := maxi(Levels.XP_FLOOR, total)      # floored: a bad night still moves
+	var reached := Levels.award(total)
+	var msg := "Closing time. Average satisfaction: %d\n+%d xp" % [avg, paid]
+
 	Game.add_weight(served)     # placeholder until the feast drives this (§6.10)
-	Game.advance_day()          # builds tomorrow, autosaves, phase -> FORAGE
+	Game.advance_day()          # builds tomorrow at the new level, autosaves
+
 	result_lbl.text = msg
 	request_lbl.text = ""
 	note_lbl.text = "Journal kept. Progress kept. Stock carries. Press R for the morning."
@@ -201,6 +209,9 @@ func _end_night() -> void:
 	_clear(shelf_grid)
 	_clear(vat_box)
 	_refresh_status()
+
+	if not reached.is_empty():
+		_show_level_up(reached)
 
 
 func _build_ui() -> void:
@@ -217,6 +228,7 @@ func _build_ui() -> void:
 	var head := HBoxContainer.new()
 	col.add_child(head)
 	status_lbl = _label(head, "")
+	level_lbl = _label(head, "")
 	var j_btn := Button.new()
 	j_btn.text = "journal  (J)"
 	j_btn.pressed.connect(_toggle_journal)
@@ -268,6 +280,8 @@ func _build_ui() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if journal_ui != null and journal_ui.is_open():
+			return
+		if level_up_ui != null and level_up_ui.is_open():
 			return
 		if event.keycode == KEY_J:
 			_toggle_journal()

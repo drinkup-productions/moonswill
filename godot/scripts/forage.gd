@@ -3,6 +3,7 @@ extends Control
 ## Contents are visible before a search is spent. Choosing is the game.
 
 var status_lbl: Label
+var level_lbl: Label
 var need_box: VBoxContainer
 var cover_lbl: Label
 var spot_grid: GridContainer
@@ -98,9 +99,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
-	status_lbl.text = "Day %d — morning     searches left: %d     taste tests left: %d     weight %d     attention %d" % [
-		Game.day, Game.searches_left, Game.taste_tests_left, Game.weight, Game.attention
+	status_lbl.text = "Day %d — morning     searches %d / %d     taste tests %d     weight %d     attention %d" % [
+		Game.day, Game.searches_left, Levels.searches(),
+		Game.taste_tests_left, Game.weight, Game.attention
 	]
+	level_lbl.text = Levels.progress_text()
 	_refresh_customers()
 	_refresh_coverage()
 	_refresh_spots()
@@ -195,6 +198,7 @@ func _build_ui() -> void:
 	var head := HBoxContainer.new()
 	col.add_child(head)
 	status_lbl = _label(head, "")
+	level_lbl = _label(head, "")
 	var j_btn := Button.new()
 	j_btn.text = "journal  (J)"
 	j_btn.pressed.connect(_toggle_journal)

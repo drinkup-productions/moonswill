@@ -154,7 +154,7 @@ func has_item(id: String, n: int = 1) -> bool:
 	return inventory.get(id, 0) >= n
 
 
-## Wipes the run and the journal. A fresh save means fresh discovery. §6.15
+## Wipes the run, the level, and the journal. Fresh save, fresh discovery.
 func reset_run() -> void:
 	day = 1
 	region = "home"
@@ -162,6 +162,7 @@ func reset_run() -> void:
 	attention = 0
 	inventory.clear()
 	stock_today.clear()
+	Levels.reset()
 	Journal.reset()
 	Journal.seed_starter()
 	start_day()

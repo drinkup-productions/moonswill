@@ -197,6 +197,23 @@ Note: `tools/prototypes/` currently contains a single stray file named
   not yet updated.
 - brew.gd's inline journal panel removed; JournalUI serves both scenes.
 
+### 2026-10-15 — Build step 6
+- levels.gd rewritten table-driven from §6.16. The old formula handed out
+  +1 search AND +1 yield at 3/5/7/9, reaching 9 searches and 7 per search
+  at cap. Now caps at 7 and 6, which is what keeps foraging relevant.
+- award() returns the levels actually reached, not a count, so the beat can
+  name each one.
+- LevelUpUI added: a beat, not a toast. States the capability, then the new
+  totals. Cap message points at relocation as the real difficulty reset.
+- brew.gd vat size now reads Levels.vat_slots() instead of a hardcoded 3.
+  Level 4's reward was previously unreachable.
+- Level and XP shown in both scene headers.
+- reset_run() now resets Levels — "new run" used to keep your level.
+- Hooks, not behaviour: conceal_stages() (step 8), recipe_family_unlocked()
+  (no recipe families exist yet), level_gained signal (unwired).
+- XP curve reading of "tight at 1, comfortable by 3" logged: capability
+  delivers it, not the XP arithmetic. design.md still not updated.
+
 ---
 
 ## 6. CONVENTIONS
