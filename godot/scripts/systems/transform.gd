@@ -21,6 +21,11 @@ var points := {}              # String axis -> int, may go negative
 var flavor := {}              # String -> bool
 var concealed_stages := 1     # §6.10; level 7 sets 2
 
+## Contribution from outside the brew, folded into every read. Chugs's weight
+## sits here so his silhouette is points + weight without art ever needing a
+## second call. Patrons leave it empty and behave exactly as before. §6.10
+var bonus := {}
+
 
 func _init(p_species: String = "") -> void:
 	species = p_species
@@ -28,6 +33,18 @@ func _init(p_species: String = "") -> void:
 		points[a] = 0
 	for f in FLAVOR:
 		flavor[f] = false
+
+
+## The only thing stage reads ever look at.
+func effective(p_axis: String) -> int:
+	return int(points.get(p_axis, 0)) + int(bonus.get(p_axis, 0))
+
+
+func set_bonus(p_axis: String, p_value: int) -> void:
+	if int(bonus.get(p_axis, 0)) == p_value:
+		return
+	bonus[p_axis] = p_value
+	changed.emit()
 
 
 ## Returns the threshold crossings, so a reaction can be looked up without
@@ -49,7 +66,7 @@ func apply(p_deltas: Dictionary) -> Array:
 
 
 func stage_of(p_axis: String) -> int:
-	return clampi(int(points.get(p_axis, 0)) / PER_STAGE, 0, STAGE_MAX)
+	return clampi(effective(p_axis) / PER_STAGE, 0, STAGE_MAX)
 
 
 func silhouette() -> int:
@@ -78,6 +95,16 @@ func set_flavor(p_key: String, p_on: bool = true) -> void:
 	if flavor.has(p_key):
 		flavor[p_key] = p_on
 		changed.emit()
+
+
+## Back to the base body. Points and flavor only — the bonus is not the
+## potion's business, weight is. §6.12
+func clear_points() -> void:
+	for a in points.keys():
+		points[a] = 0
+	for f in flavor.keys():
+		flavor[f] = false
+	changed.emit()
 
 
 ## THE ONLY ART-FACING CALL.
@@ -125,6 +152,7 @@ func serialize() -> Dictionary:
 		"points": points.duplicate(),
 		"flavor": flavor.duplicate(),
 		"concealed_stages": concealed_stages,
+		"bonus": bonus.duplicate(),
 	}
 
 
@@ -134,5 +162,7 @@ func deserialize(p_data: Dictionary) -> void:
 		points[k] = int(p_data["points"][k])
 	for k in p_data.get("flavor", {}):
 		flavor[k] = bool(p_data["flavor"][k])
+	for k in p_data.get("bonus", {}):
+		bonus[k] = int(p_data["bonus"][k])
 	concealed_stages = int(p_data.get("concealed_stages", 1))
 	changed.emit()

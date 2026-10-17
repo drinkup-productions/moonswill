@@ -1,0 +1,10 @@
+res://scenes/boot.tscn
+res://scripts/autoload/game.gd
+res://scripts/systems/transform.gd
+res://scenes/feast/feast.tscn
+res://scenes/brew/brew.tscn
+res://scenes/forage/forage.tscn
+res://scenes/dev/tf_debug.tscn
+res://scenes/dev/encounter_debug.tscn
+res://scenes/dev/battle_debug.tscn
+res://scripts/experiment.gd

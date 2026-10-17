@@ -7,8 +7,9 @@ signal weight_changed(weight: int)
 signal attention_changed(attention: int)
 signal roster_ready(roster: Array)
 signal relocated(region: String)
+signal chugs_changed()
 
-enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
+enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE, EXPERIMENT }
 
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
@@ -19,6 +20,7 @@ const MOON_DAYS := 15           # §13
 const BULK_PER_STAGE := 20
 const RESET_POTION_WEIGHT := 10
 const EXPERIMENT_COOLDOWN := 7
+const CHUGS_SPECIES := "chugs"
 
 const REGIONS := ["home", "the fens", "the high downs"]
 
@@ -50,6 +52,62 @@ var belly_used: int = 0
 var pending_relocation := false
 var moved_this_moon := false
 
+## Chugs's own body. Points here are permanent until the reset potion; weight
+## rides in as a bonus so both read through one silhouette. §6.10, §6.12
+var chugs: Transform = null
+var chugs_drinks: int = 0
+var in_experiment: bool = false
+var banked_searches: int = 0
+
+
+func _on_chugs_changed() -> void:
+	chugs_changed.emit()
+
+
+func chugs_body() -> Transform:
+	if chugs == null:
+		chugs = Transform.new(CHUGS_SPECIES)
+		chugs.concealed_stages = 0      # the bench shows the real body
+		chugs.changed.connect(_on_chugs_changed)
+		chugs.set_bonus("belly", _weight_as_points())
+	return chugs
+
+
+## Weight is a 0-100 scalar on a 20-per-stage ladder; points are 6-per-stage.
+## One conversion, one place, so the two reads can never disagree. §6.10
+func _weight_as_points() -> int:
+	return int(round(float(weight) * float(Transform.PER_STAGE) / float(BULK_PER_STAGE)))
+
+
+func sync_chugs_bonus() -> void:
+	chugs_body().set_bonus("belly", _weight_as_points())
+
+
+## A spiked treat, or a dose off the bench. Whatever sticks, sticks. §6.12
+func spike_chugs(p_deltas: Dictionary) -> Array:
+	return chugs_body().apply(p_deltas)
+
+
+func chugs_perm(p_axis: String = "belly") -> int:
+	return int(chugs_body().points.get(p_axis, 0))
+
+
+func chugs_stage(p_axis: String = "belly") -> int:
+	return chugs_body().stage_of(p_axis)
+
+
+func chugs_visual() -> Dictionary:
+	return chugs_body().visual()
+
+
+func reset_chugs() -> bool:
+	if not in_experiment:
+		return false
+	chugs_body().clear_points()
+	chugs_drinks = 0
+	add_weight(-RESET_POTION_WEIGHT)
+	return true
+
 
 ## The cast outlives the night, the moon and the player's absence. §6.18
 func population_for(p_region: String) -> Array:
@@ -68,7 +126,8 @@ func start_day() -> void:
 		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB,
 		RegionDB.allowed_ingredients(region, IngredientDB)
 	)
-	searches_left = maxi(1, Levels.searches() - (1 if weakened_days > 0 else 0))
+	searches_left = maxi(1, Levels.searches() - (1 if weakened_days > 0 else 0)) + banked_searches
+	banked_searches = 0
 	steps_left = steps_per_day()
 	step_count = 0
 	overworld_cell = Vector2i(-1, -1)
@@ -125,6 +184,44 @@ func can_experiment() -> bool:
 	return day - last_experiment_day >= EXPERIMENT_COOLDOWN
 
 
+func experiment_ready() -> bool:
+	return can_experiment() and not in_experiment
+
+
+func experiment_cooldown_left() -> int:
+	return maxi(0, EXPERIMENT_COOLDOWN - (day - last_experiment_day))
+
+
+## The day is spent on the bench, not in the wilds — but the searches are
+## banked, not burned. §6.12
+func begin_experiment() -> void:
+	if in_experiment:
+		return
+	in_experiment = true
+	last_experiment_day = day
+	banked_searches = searches_left
+	searches_left = 0
+	chugs_drinks = 0
+	chugs_body()
+	set_phase(Phase.EXPERIMENT)
+
+
+func end_experiment() -> void:
+	in_experiment = false
+	set_phase(Phase.SERVICE)
+
+
+## Loading rebuilds the day rather than the scene, so an experiment day is
+## reconstructed from its stamp. §6.13
+func resume_experiment_if_today() -> void:
+	if not in_experiment or last_experiment_day != day:
+		in_experiment = false
+		return
+	banked_searches = searches_left
+	searches_left = 0
+	set_phase(Phase.EXPERIMENT)
+
+
 func skip_feast() -> void:
 	add_attention(-8)
 	weakened_days = 2
@@ -177,7 +274,8 @@ func accept_treat(p_patron: Patron) -> String:
 	if bool(t.get("spiked", false)):
 		var ing: Ingredient = IngredientDB.get_ingredient(str(t["brew"]))
 		if ing != null:
-			msg += "   Spiked with %s." % ing.display_name
+			spike_chugs(ing.effect())
+			msg += "   Spiked with %s — it stays with him." % ing.display_name
 	return msg
 
 
@@ -222,6 +320,7 @@ func advance_day() -> void:
 		moved_this_moon = false
 	if weakened_days > 0:
 		weakened_days -= 1
+	in_experiment = false
 	stock_today.clear()
 	day_advanced.emit(day)
 	daily_attention_tick()
@@ -244,6 +343,8 @@ func daily_attention_tick() -> void:
 
 func add_weight(n: int) -> void:
 	weight = clampi(weight + n, 0, WEIGHT_MAX)
+	if chugs != null:
+		chugs.set_bonus("belly", _weight_as_points())
 	weight_changed.emit(weight)
 
 
@@ -322,11 +423,17 @@ func reset_run() -> void:
 	pending_relocation = false
 	moved_this_moon = false
 	last_experiment_day = -99
+	in_experiment = false
+	banked_searches = 0
+	chugs_drinks = 0
 	affinity.clear()
 	populations.clear()
 	belly_used = 0
 	inventory.clear()
 	stock_today.clear()
+	if chugs != null:
+		chugs.clear_points()
+		chugs.set_bonus("belly", 0)
 	Levels.reset()
 	Journal.reset()
 	Journal.seed_starter()

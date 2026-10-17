@@ -60,8 +60,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
-	count_lbl.text = "     %d of %d known   ·   taste tests left today: %d" % [
-		Journal.known_count(), Journal.total_ingredients(), Game.taste_tests_left
+	count_lbl.text = "     %d of %d known  " % [
+		Journal.known_count(), Journal.total_ingredients()
 	]
 	_clear(body)
 	if view == "ingredient":
@@ -96,13 +96,7 @@ func _ingredient_view() -> void:
 		held_l.custom_minimum_size = Vector2(48, 0)
 		row.add_child(held_l)
 
-		var taste_btn := Button.new()
-		taste_btn.text = "taste"
-		taste_btn.disabled = not Game.can_taste(id)
-		taste_btn.pressed.connect(_on_taste.bind(id))
-		row.add_child(taste_btn)
-
-
+		
 func _effect_view() -> void:
 	var note := Label.new()
 	note.text = "Reverse lookup. Only what Chugs has actually learned."

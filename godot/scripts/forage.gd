@@ -4,6 +4,7 @@ extends Control
 
 const OVERWORLD_SCENE := "res://scenes/overworld/overworld.tscn"
 const BREW_SCENE := "res://scenes/brew/brew.tscn"
+const EXPERIMENT_SCENE := "res://scenes/experiment/experiment.tscn"
 
 var status_lbl: Label
 var level_lbl: Label
@@ -15,7 +16,7 @@ var hint_lbl: Label
 var open_btn: Button
 var journal_ui: JournalUI
 var save_ui: SaveUI
-
+var exp_btn: Button
 
 func _ready() -> void:
 	if Game.forage == null:
@@ -130,20 +131,39 @@ func _input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
-	status_lbl.text = "Day %d (moon %d/%d)  ·  %s  ·  %s     searches %d / %d     taste %d     weight %d (stage %d, seen %d)     attention %d" % [
+	status_lbl.text = "Day %d (moon %d/%d)  ·  %s  ·  %s     searches %d / %d     weight %d (stage %d, seen %d)     attention %d" % [
 		Game.day, Game.moon_day, Game.MOON_DAYS,
 		RegionDB.display(Game.region),
 		"weakened" if Game.is_weakened() else "steady",
-		Game.searches_left, Levels.searches(), Game.taste_tests_left,
+		Game.searches_left, Levels.searches(),
 		Game.weight, Game.bulk_stage(), Game.visible_bulk(), Game.attention,
 	]
 	level_lbl.text = Levels.progress_text()
+	_refresh_experiment()
 	_refresh_customers()
 	_refresh_coverage()
 	_refresh_spots()
 	_refresh_pantry()
 	_refresh_footer()
+	
+func _refresh_experiment() -> void:
+	if exp_btn == null:
+		return
+	if Game.in_experiment:
+		exp_btn.text = "back to the bench"
+		exp_btn.disabled = false
+	elif Game.experiment_ready():
+		exp_btn.text = "experiment day"
+		exp_btn.disabled = false
+	else:
+		exp_btn.text = "experiment in %d days" % Game.experiment_cooldown_left()
+		exp_btn.disabled = true
 
+
+func _on_experiment() -> void:
+	if not Game.in_experiment:
+		Game.begin_experiment()
+	get_tree().change_scene_to_file(EXPERIMENT_SCENE)
 
 func _refresh_customers() -> void:
 	_clear(need_box)
@@ -246,6 +266,10 @@ func _build_ui() -> void:
 	wander_btn.text = "wander out"
 	wander_btn.pressed.connect(_on_wander)
 	head.add_child(wander_btn)
+	var exp_btn = Button.new()
+	exp_btn.text = "experiment day"
+	exp_btn.pressed.connect(_on_experiment)
+	head.add_child(exp_btn)
 	var move_btn := Button.new()
 	move_btn.text = "move on  (once a moon)"
 	move_btn.disabled = not Game.can_move_on()

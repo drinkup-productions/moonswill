@@ -4,7 +4,7 @@ extends Node
 
 const SAVE_DIR := "user://saves"
 const SLOT_COUNT := 3
-const VERSION := 2
+const VERSION := 3
 
 signal saved(slot: int)
 signal loaded(slot: int)
@@ -54,6 +54,10 @@ func save_game(slot: int) -> bool:
 		"journal": Journal.serialize(),
 		"populations": _pack_populations(),
 		"last_experiment_day": Game.last_experiment_day,
+		"in_experiment": Game.in_experiment,
+		"banked_searches": Game.banked_searches,
+		"chugs_drinks": Game.chugs_drinks,
+		"chugs": Game.chugs_body().serialize(),
 	}
 	var f := FileAccess.open(_path(slot), FileAccess.WRITE)
 	if f == null:
@@ -81,6 +85,11 @@ func load_game(slot: int) -> bool:
 	Game.weakened_days = int(data.get("weakened_days", 0))
 	Game.feasted_this_moon = bool(data.get("feasted_this_moon", false))
 	Game.last_experiment_day = int(data.get("last_experiment_day", -99))
+	Game.banked_searches = int(data.get("banked_searches", 0))
+	Game.chugs_drinks = int(data.get("chugs_drinks", 0))
+	Game.in_experiment = bool(data.get("in_experiment", false))
+	Game.chugs_body().deserialize(data.get("chugs", {}))
+	Game.sync_chugs_bonus()
 	_unpack_populations(data.get("populations", {}))
 	Levels.level = int(data.get("level", 1))
 	Levels.xp = int(data.get("xp", 0))
@@ -95,6 +104,7 @@ func load_and_resume(slot: int) -> bool:
 	if not load_game(slot):
 		return false
 	Game.start_day()
+	Game.resume_experiment_if_today()
 	return true
 
 
