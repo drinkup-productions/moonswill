@@ -1,8 +1,0 @@
-res://scenes/boot.tscn
-res://scripts/brew.gd
-res://scenes/feast/feast.tscn
-res://scenes/brew/brew.tscn
-res://scenes/forage/forage.tscn
-res://scenes/dev/tf_debug.tscn
-res://scenes/dev/encounter_debug.tscn
-res://scenes/dev/battle_debug.tscn

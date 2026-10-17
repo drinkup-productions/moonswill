@@ -52,6 +52,8 @@ func save_game(slot: int) -> bool:
 		"level": Levels.level,
 		"xp": Levels.xp,
 		"journal": Journal.serialize(),
+		"populations": _pack_populations(),
+		"last_experiment_day": Game.last_experiment_day,
 	}
 	var f := FileAccess.open(_path(slot), FileAccess.WRITE)
 	if f == null:
@@ -78,6 +80,8 @@ func load_game(slot: int) -> bool:
 	Game.belly_used = int(data.get("belly_used", 0))
 	Game.weakened_days = int(data.get("weakened_days", 0))
 	Game.feasted_this_moon = bool(data.get("feasted_this_moon", false))
+	Game.last_experiment_day = int(data.get("last_experiment_day", -99))
+	_unpack_populations(data.get("populations", {}))
 	Levels.level = int(data.get("level", 1))
 	Levels.xp = int(data.get("xp", 0))
 	Journal.deserialize(data.get("journal", {}))
@@ -97,3 +101,21 @@ func load_and_resume(slot: int) -> bool:
 func delete_save(slot: int) -> void:
 	if has_save(slot):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(_path(slot)))
+
+func _pack_populations() -> Dictionary:
+	var out := {}
+	for region in Game.populations.keys():
+		var arr: Array = []
+		for p in Game.populations[region]:
+			arr.append(p.serialize())
+		out[region] = arr
+	return out
+
+
+func _unpack_populations(p_data: Dictionary) -> void:
+	Game.populations.clear()
+	for region in p_data.keys():
+		var arr: Array = []
+		for entry in p_data[region]:
+			arr.append(Patron.from_dict(entry))
+		Game.populations[region] = arr

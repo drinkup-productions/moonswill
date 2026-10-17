@@ -13,10 +13,14 @@ enum Phase { FORAGE, BREW, SERVICE, FEAST, RESOLVE }
 const WEIGHT_MAX := 100
 const ATTENTION_MAX := 100
 const WELLWATER_STOCK := 99
-const AUTOSAVE_SLOT := 0        # 0 is the autosave; 1-3 are manual
-const STEPS_PER_EXERTION := 3   # walking is the only way weight comes off
-const MOON_DAYS := 7            # §13: the slice is one lunar week
-const BULK_PER_STAGE := 20      # weight points per visible bulk stage
+const AUTOSAVE_SLOT := 0
+const STEPS_PER_EXERTION := 3
+const MOON_DAYS := 15           # §13
+const BULK_PER_STAGE := 20
+const RESET_POTION_WEIGHT := 10
+const EXPERIMENT_COOLDOWN := 7
+
+const REGIONS := ["home", "the fens", "the high downs"]
 
 var day: int = 1
 var moon_day: int = 1
@@ -24,40 +28,47 @@ var region: String = "home"
 var phase: Phase = Phase.FORAGE
 var weight: int = 0
 var attention: int = 0
-var inventory: Dictionary = {}          # String ingredient_id -> int count
-var stock_today: Array[String] = []     # what was foraged today
+var inventory: Dictionary = {}
+var stock_today: Array[String] = []
 
-var roster: Array = []                  # Array[Patron] — tonight's customers
-var forage: ForageMap = null            # today's spots
+var roster: Array = []                  # tonight's arrivals, from the population
+var populations: Dictionary = {}        # region -> Array[Patron], persistent
+var forage: ForageMap = null
 var searches_left: int = 0
-var taste_tests_left: int = 0
+var last_experiment_day: int = -99
 
 var steps_left: int = 0
 var step_count: int = 0
 var overworld_cell: Vector2i = Vector2i(-1, -1)
 
-## Skipping a feeding is the only thing that brings attention down. §6.6
 var weakened_days: int = 0
 var feasted_this_moon: bool = false
 
-var affinity: Dictionary = {}           # patron name -> int, persists across days
+var affinity: Dictionary = {}           # patron id -> int, persists across relocations
 var belly_used: int = 0
 
 var pending_relocation := false
 var moved_this_moon := false
 
 
+## The cast outlives the night, the moon and the player's absence. §6.18
+func population_for(p_region: String) -> Array:
+	if not populations.has(p_region):
+		populations[p_region] = PatronFactory.build_population(p_region)
+	return populations[p_region]
+
+
 func start_day() -> void:
-	roster = PatronFactory.build_night(
-		day, patron_count(), RegionDB.species_for(region), RegionDB.strictness_for(region)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("moonswill-night-%d-%s" % [day, region])
+	roster = PatronFactory.roll_night(
+		population_for(region), patron_count(), RegionDB.strictness_for(region), rng
 	)
 	forage = ForageMap.build(
 		day, spots_offered(), Levels.yield_per_search(), needed_tags(), IngredientDB,
 		RegionDB.allowed_ingredients(region, IngredientDB)
 	)
-	# Weakened foraging is the price of a skipped feeding. §6.6
 	searches_left = maxi(1, Levels.searches() - (1 if weakened_days > 0 else 0))
-	taste_tests_left = Levels.taste_tests_per_day()
 	steps_left = steps_per_day()
 	step_count = 0
 	overworld_cell = Vector2i(-1, -1)
@@ -75,9 +86,13 @@ func spots_offered() -> int:
 	return Levels.searches() + 3
 
 
-## Fat means fewer trips. The spiral, mechanised. §6.10
+## Fat means fewer trips; levelling makes the burn easier. §6.10
 func steps_per_day() -> int:
-	return maxi(8, 36 - int(floor(float(weight) / 3.0)))
+	return maxi(10, 42 - int(floor(float(weight) / 3.0)))
+
+
+func steps_per_exertion() -> int:
+	return maxi(2, 7 - int(Levels.level / 2))
 
 
 func spend_step() -> bool:
@@ -85,17 +100,15 @@ func spend_step() -> bool:
 		return false
 	steps_left -= 1
 	step_count += 1
-	if step_count % STEPS_PER_EXERTION == 0:
+	if step_count % steps_per_exertion() == 0:
 		add_weight(-1)
 	return true
 
 
-## Weight buckets into a stage for art and attention. §6.9, §6.10
 func bulk_stage() -> int:
 	return clampi(int(floor(float(weight) / float(BULK_PER_STAGE))), 0, 5)
 
 
-## Concealment masks a stage, and level 7 masks two. §6.10
 func visible_bulk() -> int:
 	return maxi(0, bulk_stage() - Levels.conceal_stages())
 
@@ -108,9 +121,10 @@ func is_weakened() -> bool:
 	return weakened_days > 0
 
 
-## The sink. Costs attention, costs two days of sharp foraging, and costs
-## the ability to refuse treats — which fattens him, which raises attention.
-## Self-balancing. §6.6
+func can_experiment() -> bool:
+	return day - last_experiment_day >= EXPERIMENT_COOLDOWN
+
+
 func skip_feast() -> void:
 	add_attention(-8)
 	weakened_days = 2
@@ -139,25 +153,6 @@ func needed_tags() -> Array:
 	return out
 
 
-func taste(id: String) -> String:
-	if Journal.knows_ingredient(id):
-		return "Already in the journal."
-	if taste_tests_left <= 0:
-		return "No taste tests left today."
-	if not has_item(id, 1):
-		return "None in the pantry."
-	take_item(id, 1)
-	taste_tests_left -= 1
-	var ing: Ingredient = IngredientDB.get_ingredient(id)
-	Journal.learn_ingredient(id, ing.tags)
-	return "Tasted %s — %s" % [ing.display_name, Attributes.pretty(ing.effect())]
-
-
-func can_taste(id: String) -> bool:
-	return taste_tests_left > 0 and not Journal.knows_ingredient(id) and has_item(id, 1)
-
-
-## A bigger belly holds more, but also draws more eyes. §6.10
 func belly_capacity() -> int:
 	return 3 + bulk_stage()
 
@@ -166,7 +161,6 @@ func can_accept() -> bool:
 	return belly_used < belly_capacity() or is_weakened()
 
 
-## Too hungry to say no. The price of a skipped feeding. §6.6
 func can_decline() -> bool:
 	return not is_weakened()
 
@@ -177,8 +171,8 @@ func accept_treat(p_patron: Patron) -> String:
 		return ""
 	add_weight(int(t["weight"]))
 	belly_used += 1
-	raise_affinity(p_patron.name, 1)
-	p_patron.affinity = int(affinity.get(p_patron.name, 0))
+	raise_affinity(p_patron.id, 1)
+	p_patron.affinity = int(affinity.get(p_patron.id, 0))
 	var msg := "Ate %s. +%d weight. Affinity up." % [t["dish"], int(t["weight"])]
 	if bool(t.get("spiked", false)):
 		var ing: Ingredient = IngredientDB.get_ingredient(str(t["brew"]))
@@ -190,13 +184,13 @@ func accept_treat(p_patron: Patron) -> String:
 func decline_treat(p_patron: Patron) -> String:
 	if p_patron.treat.is_empty():
 		return ""
-	raise_affinity(p_patron.name, -1)
-	p_patron.affinity = int(affinity.get(p_patron.name, 0))
+	raise_affinity(p_patron.id, -1)
+	p_patron.affinity = int(affinity.get(p_patron.id, 0))
 	return "Declined %s. Affinity down." % p_patron.treat["dish"]
 
 
-func raise_affinity(p_name: String, p_delta: int) -> void:
-	affinity[p_name] = clampi(int(affinity.get(p_name, 0)) + p_delta, 0, 10)
+func raise_affinity(p_id: String, p_delta: int) -> void:
+	affinity[p_id] = clampi(int(affinity.get(p_id, 0)) + p_delta, 0, 10)
 
 
 func top_up_wellwater() -> void:
@@ -235,7 +229,6 @@ func advance_day() -> void:
 	Save.save_game(AUTOSAVE_SLOT)
 
 
-## Visible weight is the passive attention source. §6.6
 func daily_attention_tick() -> void:
 	var v := visible_bulk()
 	var rise := 0
@@ -261,7 +254,7 @@ func add_attention(n: int) -> void:
 		relocate()
 
 
-## No death, no banishment, ever. The bar simply walks. §6.7
+## The cast stays behind with whatever bodies they had. §6.7, §6.18
 func relocate() -> void:
 	region = RegionDB.next_unlocked(region, Levels.level)
 	attention = 0
@@ -270,7 +263,6 @@ func relocate() -> void:
 	relocated.emit(region)
 
 
-## Where the next scene change should land. Keeps every caller honest.
 func next_scene() -> String:
 	if pending_relocation:
 		return "res://scenes/relocation/relocation.tscn"
@@ -283,7 +275,6 @@ func can_move_on() -> bool:
 	return RegionDB.next_unlocked(region, Levels.level) != region
 
 
-## Player-initiated move, once a moon. §6.7
 func move_on() -> void:
 	if not can_move_on():
 		return
@@ -308,7 +299,6 @@ func has_item(id: String, n: int = 1) -> bool:
 	return inventory.get(id, 0) >= n
 
 
-## Defeat costs half the pack, rounded against the player. §8
 func lose_half_inventory() -> void:
 	for id in inventory.keys():
 		if id == "wellwater":
@@ -331,7 +321,9 @@ func reset_run() -> void:
 	feasted_this_moon = false
 	pending_relocation = false
 	moved_this_moon = false
+	last_experiment_day = -99
 	affinity.clear()
+	populations.clear()
 	belly_used = 0
 	inventory.clear()
 	stock_today.clear()

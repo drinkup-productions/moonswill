@@ -1,23 +1,30 @@
 extends Node2D
 ## Grey-box feast scene. Draws everything; no art assets required.
 ## Design ref: docs/design.md §6.5
-## Patrons arrive already dosed — that is the whole strategy.
+## Patrons arrive already dosed — that is the whole strategy. There is no
+## "willing" category; everyone rolls to freeze, and the immobilised cannot run.
 
 const TILE := 48
 const FORAGE_SCENE := "res://scenes/forage/forage.tscn"
+const FREEZE_BASE := 0.45
+const FREEZE_PER_STAGE := 0.07
 
 var grid: FeastGrid
 var ctrl: FeastController
+var rng := RandomNumberGenerator.new()
 var status: Label
 var hint: Label
 var busy := false
+var sources := {}          # feast patron id -> the cast member behind it
 
 
 func _ready() -> void:
+	rng.randomize()
 	grid = FeastGrid.new(FeastLayouts.BAR_MAIN)
 	ctrl = FeastController.new(grid, Levels.feast_action_points())
 	ctrl.chugs_cell = Vector2i(7, 7)
 	_spawn_patrons()
+	_roll_freeze()
 
 	ctrl.state_changed.connect(_refresh)
 	ctrl.patron_caught.connect(_on_caught)
@@ -51,18 +58,29 @@ func _spawn_patrons() -> void:
 	var step := maxi(1, int(free.size() / maxi(1, seeds.size() + 1)))
 	var taken := {}
 	for i in seeds.size():
-		var seed_p = seeds[i]
-		var p := FeastPatron.new()
-		p.display_name = str(seed_p.name)
-		p.species = str(seed_p.species)
-		p.transform.deserialize(seed_p.transform.serialize())
-		p.willing = bool(seed_p.is_willing())
+		var source: Patron = seeds[i]
+		var fp := FeastPatron.new()
+		fp.id = str(source.id)
+		fp.display_name = str(source.name)
+		fp.species = str(source.species)
+		fp.transform.deserialize(source.transform.serialize())
 		var idx := mini(free.size() - 1, step * (i + 1))
 		while taken.has(idx) and idx < free.size() - 1:
 			idx += 1
 		taken[idx] = true
-		p.cell = free[idx]
-		ctrl.register_patron(p)
+		fp.cell = free[idx]
+		sources[fp.id] = source
+		ctrl.register_patron(fp)
+
+
+## Everyone rolls. The immobilised do not get to. §6.5
+func _roll_freeze() -> void:
+	for fp in ctrl.patrons:
+		var stage := fp.transform.silhouette()
+		if stage >= 5:
+			fp.frozen = true
+		else:
+			fp.frozen = rng.randf() < (FREEZE_BASE - float(stage) * FREEZE_PER_STAGE)
 
 
 func _demo_roster() -> Array:
@@ -72,8 +90,8 @@ func _demo_roster() -> Array:
 		["Nim", "human", 0], ["Pim", "lizard-folk", 85],
 	]
 	for s in specs:
-		var p := Patron.make(str(s[0]), str(s[1]),
-			PatronRequest.make(PatronRequest.Kind.VAGUE, "", {}, 1.0))
+		var p := Patron.make(str(s[0]), str(s[1]))
+		p.id = "demo:%s" % str(s[0])
 		p.transform.points["belly"] = int(round(float(s[2]) * 6.0 / 17.0))
 		out.append(p)
 	return out
@@ -97,7 +115,7 @@ func _speed_report() -> String:
 	var parts: Array[String] = []
 	for p in ctrl.patrons:
 		if p.is_active():
-			parts.append("%s %d" % [p.display_name, p.speed()])
+			parts.append("%s %d%s" % [p.display_name, p.speed(), " (frozen)" if p.frozen else ""])
 	return ", ".join(parts)
 
 
@@ -153,6 +171,8 @@ func _end_turn() -> void:
 
 func _on_caught(p: FeastPatron) -> void:
 	hint.text = "Ate %s." % p.display_name
+	if sources.has(p.id):
+		sources[p.id].reset_body()      # body resets, clothes come back. §6.5
 
 
 func _on_escaped(p: FeastPatron) -> void:
@@ -182,21 +202,23 @@ func _draw() -> void:
 			var rect := Rect2(Vector2(x, y) * TILE, Vector2(TILE, TILE))
 			draw_rect(rect, _tile_color(grid.tile_at(cell)))
 
+	# escape routes, for anyone who will actually run
 	for p in ctrl.patrons:
-		if not p.is_active() or p.willing:
+		if not p.is_active() or p.frozen:
 			continue
 		var path := grid.path_to_exit(p.cell)
 		for step in path:
 			draw_circle(Vector2(step) * TILE + Vector2(TILE, TILE) * 0.5, 3.0, Color(1, 1, 1, 0.22))
 
+	# patrons
 	for p in ctrl.patrons:
 		if not p.is_active():
 			continue
 		var centre := Vector2(p.cell) * TILE + Vector2(TILE, TILE) * 0.5
 		var radius := 12.0 + float(p.transform.silhouette()) * 2.0
 		draw_circle(centre, radius, _patron_color(p))
-		if p.willing:
-			draw_arc(centre, radius + 5.0, 0.0, TAU, 24, Color.WHITE, 2.0)
+		if p.frozen:
+			draw_arc(centre, radius + 5.0, 0.0, TAU, 24, Color(0.55, 0.75, 1.0), 2.0)
 
 	var cc := Vector2(ctrl.chugs_cell) * TILE + Vector2(TILE, TILE) * 0.5
 	draw_circle(cc, 14.0 + float(Game.weight) / 14.0, Color(0.66, 0.33, 0.97))
@@ -211,20 +233,22 @@ func _tile_color(t: String) -> Color:
 
 
 func _patron_color(p: FeastPatron) -> Color:
-	if p.willing:
-		return Color(0.13, 0.72, 0.45)
+	if p.frozen:
+		return Color(0.42, 0.62, 0.88)
 	match p.species:
-		"bovine":  return Color(0.96, 0.62, 0.04)
-		"felinid": return Color(0.08, 0.72, 0.65)
-		"equine":  return Color(0.94, 0.27, 0.27)
-		"human":   return Color(0.23, 0.51, 0.96)
-		_:         return Color(0.60, 0.60, 0.65)
+		"bovine":      return Color(0.96, 0.62, 0.04)
+		"felinid":     return Color(0.08, 0.72, 0.65)
+		"equine":      return Color(0.94, 0.27, 0.27)
+		"human":       return Color(0.23, 0.51, 0.96)
+		"canid":       return Color(0.72, 0.46, 0.20)
+		"lizard-folk": return Color(0.40, 0.72, 0.28)
+		_:             return Color(0.60, 0.60, 0.65)
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
 		if ctrl.finished:
 			Game.advance_day()
-			get_tree().change_scene_to_file(FORAGE_SCENE)
+			get_tree().change_scene_to_file(Game.next_scene())
 		else:
 			get_tree().reload_current_scene()
